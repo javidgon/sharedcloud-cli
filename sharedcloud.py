@@ -1,12 +1,13 @@
 import click
+import datetime
 import requests
 import os
 import json
 import time
-from subprocess import Popen
+from subprocess import Popen, check_output
 
 
-BASE_URL = 'http://localhost:8000'
+BASE_URL = os.environ['BASE_URL']
 CONFIG_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CONFIG_FILE = '{}/config'.format(CONFIG_FOLDER)
 
@@ -19,7 +20,8 @@ class Config(object):
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 def _read_token():
-    token = None
+    if not os.path.exists(CONFIG_FILE):
+        return None
     with open(CONFIG_FILE, 'r') as f:
         token = f.read()
     return token
@@ -27,11 +29,11 @@ def _read_token():
 @click.group()
 @pass_config
 def cli1(config):
-    config.token = _read_token()
-
     # If Config folder doesn't exist, we create it
     if not os.path.exists(CONFIG_FOLDER):
         os.makedirs(CONFIG_FOLDER)
+
+    config.token = _read_token()
 
 
 @cli1.command(help='Login into the System')
@@ -44,14 +46,14 @@ def login(username, password):
         'password': password
     })
 
-    content = json.loads(r.content)
     if r.status_code == 200:
+        result = r.json()
         with open(CONFIG_FILE, 'w+') as f:
-            f.write(content.get('token'))
+            f.write(result.get('token'))
 
         print('Successfully logged in :)')
     else:
-        print(content)
+        print(r.content)
 
 
 @cli1.command(help='Creates a new Task')
@@ -71,12 +73,12 @@ def create_task(config, name, language, code):
         'language': language,
         'code': code
     }, headers={'Authorization':'Token {}'.format(config.token)})
-    content = json.loads(r.content)
 
     if r.status_code == 201:
-        print('Task {} was created!'.format(content.get('uuid')))
+        result = r.json()
+        print('Task {} was created!'.format(result.get('uuid')))
     else:
-        print(content)
+        print(r.content)
 
 
 @cli1.command(help='Creates a new Run')
@@ -93,12 +95,11 @@ def create_run(config, task, num_jobs):
         'task': task,
         'num_jobs': num_jobs
     }, headers={'Authorization':'Token {}'.format(config.token)})
-    import pdb; pdb.set_trace()
-    content = json.loads(r.content)
     if r.status_code == 201:
-        print('Run {} is running!'.format(content.get('uuid')))
+        result = r.json()
+        print('Run {} is running!'.format(result.get('uuid')))
     else:
-        print(content)
+        print(r.content)
 
 
 @cli1.command(help='Registers a new Instance')
@@ -117,12 +118,12 @@ def register_instance(config, name, price_per_hour, max_num_jobs):
         'price_per_hour': price_per_hour,
         'max_num_jobs': max_num_jobs,
     }, headers={'Authorization':'Token {}'.format(config.token)})
-    content = json.loads(r.content)
 
     if r.status_code == 201:
-        print('Instance {} was registered!'.format(content.get('uuid')))
+        result = r.json()
+        print('Instance {} was registered!'.format(result.get('uuid')))
     else:
-        print(content)
+        print(r.content)
 
 
 @cli1.command(help='Starts a new Instance')
@@ -135,23 +136,24 @@ def start_instance(config, instance):
         return
 
     try:
-        if not os.path.exists(CONFIG_FOLDER):
-            os.makedirs(CONFIG_FOLDER)
-
         r = requests.put('{}/instances/{}/start/'.format(BASE_URL, instance),
                          data={}, headers={'Authorization': 'Token {}'.format(config.token)})
-        print('Instance started! It will sync each 10 seconds')
         r = requests.put('{}/instances/{}/ping/'.format(BASE_URL, instance),
                          data={}, headers={'Authorization': 'Token {}'.format(config.token)})
-        content = json.loads(r.content)
         if r.status_code == 200:
-            jobs = json.loads(r.content)
+            jobs = r.json()
+            print('{} jobs arrived, please be patient...'.format(len(jobs)))
             for job in jobs:
                 job_uuid = job.get('job_uuid')
                 job_folder = CONFIG_FOLDER + '/{}'.format(job_uuid)
                 if not os.path.exists(job_folder):
                     os.makedirs(job_folder)
-
+                r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
+                    data={
+                        "status": 2,
+                        "started_at": datetime.datetime.now()
+                    }, headers={'Authorization': 'Token {}'.format(config.token)})
+ 
                 with open('{}/Dockerfile'.format(job_folder), 'w') as text_file:
                     dockerfile = job.get('dockerfile')
                     text_file.write(dockerfile)
@@ -159,27 +161,46 @@ def start_instance(config, instance):
                 with open('{}/file.py'.format(job_folder), 'w') as text_file:
                     code = job.get('code')
                     text_file.write(code)
-                docker_build = Popen(
+
+                output = b''
+                result = b''
+
+                docker_build = check_output(
                     ['docker', 'build','-t', '{}:latest'.format(job_uuid),
                      '-f', '{}/{}/Dockerfile'.format(CONFIG_FOLDER, job_uuid), job_folder])
-                docker_run = Popen(
-                    ['docker', 'run','{}:latest'.format(job_uuid)])
-                import pdb; pdb.set_trace()
-                # Save log into remote
+                for line in docker_build.splitlines():
+                    output += line + b'\n'
 
-                # Destroy container
+                docker_run = check_output(
+                    ['docker', 'run', '--name', job_uuid, '{}:latest'.format(job_uuid)])
+                for line in docker_run.splitlines():
+                    result += line + b'\n'
+
+               # Destroy container
+                docker_destroy_container = check_output(
+                    ['docker', 'rm', job_uuid])
+                for line in docker_destroy_container.splitlines():
+                    output += line + b'\n'
 
                 # Destroy image
+                docker_destroy_image = check_output(
+                    ['docker', 'rmi', job_uuid, '--force'])
+                for line in docker_destroy_image.splitlines():
+                    output += line + b'\n'
 
+                # Save log into remote
+                r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
+                    data={
+                        "log_output": output,
+                        "result": result,
+                        "status": 3,
+                        "finished_at": datetime.datetime.now()
+                    }, headers={'Authorization': 'Token {}'.format(config.token)})
+            print('All jobs were completed!')
         else:
-            print(content)
+            print(r.content)
     except KeyboardInterrupt:
         print('Instance stopped!')
         requests.put('{}/instances/{}/stop/'.format(BASE_URL, instance),
                      data={}, headers={'Authorization': 'Token {}'.format(config.token)})
 
-
-#cli = click.CommandCollection(sources=[cli1])
-#
-# if __name__ == '__main__':
-#     cli()
