@@ -2,9 +2,9 @@ import click
 import datetime
 import requests
 import os
-import json
 import time
-from subprocess import Popen, check_output
+import shutil
+from subprocess import check_output
 
 
 BASE_URL = os.environ['BASE_URL']
@@ -138,67 +138,84 @@ def start_instance(config, instance):
     try:
         r = requests.put('{}/instances/{}/start/'.format(BASE_URL, instance),
                          data={}, headers={'Authorization': 'Token {}'.format(config.token)})
-        r = requests.put('{}/instances/{}/ping/'.format(BASE_URL, instance),
-                         data={}, headers={'Authorization': 'Token {}'.format(config.token)})
-        if r.status_code == 200:
-            jobs = r.json()
-            print('{} jobs arrived, please be patient...'.format(len(jobs)))
-            for job in jobs:
-                job_uuid = job.get('job_uuid')
-                job_folder = CONFIG_FOLDER + '/{}'.format(job_uuid)
-                if not os.path.exists(job_folder):
-                    os.makedirs(job_folder)
-                r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
-                    data={
-                        "status": 2,
-                        "started_at": datetime.datetime.now()
-                    }, headers={'Authorization': 'Token {}'.format(config.token)})
- 
-                with open('{}/Dockerfile'.format(job_folder), 'w') as text_file:
-                    dockerfile = job.get('dockerfile')
-                    text_file.write(dockerfile)
 
-                with open('{}/file.py'.format(job_folder), 'w') as text_file:
-                    code = job.get('code')
-                    text_file.write(code)
+        while True:
+            r = requests.put('{}/instances/{}/ping/'.format(BASE_URL, instance),
+                             data={}, headers={'Authorization': 'Token {}'.format(config.token)})
+            if r.status_code == 200:
+                jobs = r.json()
+                if len(jobs) > 0:
+                    print('{} job/s arrived, please be patient...'.format(len(jobs)))
+                for job in jobs:
+                    job_uuid = job.get('job_uuid')
+                    job_started_at = datetime.datetime.now()
+                    instance_price_per_hour = job.get('instance_price_per_hour')
+                    job_folder = CONFIG_FOLDER + '/{}'.format(job_uuid)
+                    if not os.path.exists(job_folder):
+                        os.makedirs(job_folder)
+                    r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
+                        data={
+                            "status": 2,
+                            "started_at": job_started_at
+                        }, headers={'Authorization': 'Token {}'.format(config.token)})
+                    if r.status_code != 200:
+                        raise Exception('The remote could not be updated. Please try later.')
 
-                output = b''
-                result = b''
+                    with open('{}/Dockerfile'.format(job_folder), 'w') as text_file:
+                        dockerfile = job.get('dockerfile')
+                        text_file.write(dockerfile)
 
-                docker_build = check_output(
-                    ['docker', 'build','-t', '{}:latest'.format(job_uuid),
-                     '-f', '{}/{}/Dockerfile'.format(CONFIG_FOLDER, job_uuid), job_folder])
-                for line in docker_build.splitlines():
-                    output += line + b'\n'
+                    with open('{}/file.py'.format(job_folder), 'w') as text_file:
+                        code = job.get('code')
+                        text_file.write(code)
 
-                docker_run = check_output(
-                    ['docker', 'run', '--name', job_uuid, '{}:latest'.format(job_uuid)])
-                for line in docker_run.splitlines():
-                    result += line + b'\n'
+                    output = b''
+                    result = b''
 
-               # Destroy container
-                docker_destroy_container = check_output(
-                    ['docker', 'rm', job_uuid])
-                for line in docker_destroy_container.splitlines():
-                    output += line + b'\n'
+                    docker_build = check_output(
+                        ['docker', 'build','-t', '{}:latest'.format(job_uuid),
+                         '-f', '{}/{}/Dockerfile'.format(CONFIG_FOLDER, job_uuid), job_folder])
+                    for line in docker_build.splitlines():
+                        output += line + b'\n'
 
-                # Destroy image
-                docker_destroy_image = check_output(
-                    ['docker', 'rmi', job_uuid, '--force'])
-                for line in docker_destroy_image.splitlines():
-                    output += line + b'\n'
+                    docker_run = check_output(
+                        ['docker', 'run', '--name', job_uuid, '{}:latest'.format(job_uuid)])
+                    for line in docker_run.splitlines():
+                        result += line + b'\n'
 
-                # Save log into remote
-                r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
-                    data={
-                        "log_output": output,
-                        "result": result,
-                        "status": 3,
-                        "finished_at": datetime.datetime.now()
-                    }, headers={'Authorization': 'Token {}'.format(config.token)})
-            print('All jobs were completed!')
-        else:
-            print(r.content)
+                   # Destroy container
+                    docker_destroy_container = check_output(
+                        ['docker', 'rm', job_uuid, '--force'])
+                    for line in docker_destroy_container.splitlines():
+                        output += line + b'\n'
+
+                    # Destroy image
+                    docker_destroy_image = check_output(
+                        ['docker', 'rmi', job_uuid, '--force'])
+                    for line in docker_destroy_image.splitlines():
+                        output += line + b'\n'
+
+                    # Save details into remote
+                    r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
+                        data={
+                            "log_output": output,
+                            "result": result,
+                            "status": 3,
+                            "finished_at": datetime.datetime.now(),
+                            "cost": round(
+                                int((datetime.datetime.now()-job_started_at).total_seconds()) * (instance_price_per_hour/3600), 3)
+                        }, headers={'Authorization': 'Token {}'.format(config.token)})
+                    if r.status_code != 200:
+                        raise Exception('The remote could not be updated. Please try later.')
+                    # Remove local folder
+                    shutil.rmtree('{}/{}'.format(CONFIG_FOLDER, job_uuid))
+
+                if len(jobs) > 0:
+                    print('All jobs were completed!')
+            else:
+                print(r.content)
+
+            time.sleep(60)
     except KeyboardInterrupt:
         print('Instance stopped!')
         requests.put('{}/instances/{}/stop/'.format(BASE_URL, instance),
