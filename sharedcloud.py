@@ -22,6 +22,9 @@ JOB_STATUSES = {
     'TIMEOUT': 5
 }
 
+class ObjectNotFoundException(Exception):
+    pass
+
 
 now = datetime.datetime.now()
 
@@ -117,7 +120,7 @@ def list(config):
             task.get('name'),
             task.get('programming_language'),
             timeago.format(datetime.datetime.strptime(task.get('created_at'), DATETIME_FORMAT), now),
-        ] for task in tasks], headers=['UUID', 'NAME', 'LANGUAGE', 'CREATED_AT']))
+        ] for task in tasks], headers=['UUID', 'NAME', 'LANGUAGE', 'CREATED']))
     else:
         print(r.content)
 
@@ -135,6 +138,8 @@ def delete(config, uuid):
 
     if r.status_code == 204:
         print('Task {} was deleted!'.format(uuid))
+    elif r.status_code == 404:
+        print('Not found Task with UUID {}'.format(uuid))
     else:
         print(r.content)
 
@@ -185,7 +190,7 @@ def list(config):
             run.get('num_jobs'),
             timeago.format(datetime.datetime.strptime(run.get('created_at'), DATETIME_FORMAT), now),
             run.get('task')
-        ] for run in runs], headers=['UUID', 'NUM_JOBS', 'CREATED_AT', 'TASK_UUID']))
+        ] for run in runs], headers=['UUID', 'NUM_JOBS', 'CREATED', 'TASK_UUID']))
     else:
         print(r.content)
 
@@ -221,7 +226,7 @@ def list(config):
             job.get('cmd_output'),
             timeago.format(datetime.datetime.strptime(job.get('created_at'), DATETIME_FORMAT), now),
             job.get('run')
-        ] for job in jobs], headers=['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED_AT', 'RUN_UUID']))
+        ] for job in jobs], headers=['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID']))
     else:
         print(r.content)
 
@@ -269,6 +274,8 @@ def delete(config, uuid):
 
     if r.status_code == 204:
         print('Instance {} was deleted!'.format(uuid))
+    elif r.status_code == 404:
+        print('Not found Instance with UUID {}'.format(uuid))
     else:
         print(r.content)
 
@@ -280,15 +287,19 @@ def start(config, uuid):
     def _make_put_request(action, instance_uuid, token):
         r = requests.put('{}/instances/{}/{}/'.format(BASE_URL, instance_uuid, action),
                          data={}, headers={'Authorization': 'Token {}'.format(token)})
-        if r.status_code != 200:
+        if r.status_code == 404:
+            raise ObjectNotFoundException()
+        elif r.status_code != 200:
             raise Exception(r.content)
         return r
 
     def _make_patch_request(job_uuid, data, token):
         r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
-        if r.status_code != 200:
-            raise Exception('The remote could not be updated. Please try later.')
+        if r.status_code == 404:
+            raise ObjectNotFoundException()
+        elif r.status_code != 200:
+            raise Exception(r.content)
         return r
 
     def _create_file_from_data(data, to_file):
@@ -421,18 +432,25 @@ def start(config, uuid):
             # We wait 60 seconds until the next check
             time.sleep(60)
 
+    except ObjectNotFoundException as e:
+        print('Not found Instance with this UUID')
     except Exception as e:
-        # If the error was provoked by a job, we update our remote with the output
-        if job_uuid and build_output and cmd_output:
-            _make_patch_request(
-                job_uuid, {
-                    "build_output": build_output,
-                    "cmd_output": cmd_output,
-                    "status": JOB_STATUSES['FAILED'],
-                    "finished_at": datetime.datetime.now(),
-                    "cost": 0.0 # Failed jobs are free
-                    }, config.token)
-
-        print(e)
         print('Instance stopped!')
         _make_put_request('stop', instance_uuid, config.token)
+        print(e)
+
+        # If the error was provoked by a job, we update our remote with the output
+        if job_uuid:
+            if build_output and cmd_output:
+                _make_patch_request(
+                    job_uuid, {
+                        "build_output": build_output,
+                        "cmd_output": cmd_output,
+                        "status": JOB_STATUSES['FAILED'],
+                        "finished_at": datetime.datetime.now(),
+                        "cost": 0.0 # Failed jobs are free
+                        }, config.token)
+
+            # Just in case, we try to delete the container and the image, in case they were pending
+            build_output = _destroy_container(job_uuid, build_output)
+            build_output = _destroy_image(job_uuid, build_output)
