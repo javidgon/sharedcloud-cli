@@ -7,7 +7,7 @@ import shutil
 from subprocess import check_output, CalledProcessError
 
 
-BASE_URL = os.environ['BASE_URL']
+BASE_URL = os.environ.get('BASE_URL', 'http://142.93.102.53:8000')
 CONFIG_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CONFIG_FILE = '{}/config'.format(CONFIG_FOLDER)
 
@@ -36,7 +36,7 @@ def cli1(config):
     config.token = _read_token()
 
 
-@cli1.command(help='Login into the System')
+@cli1.command(help='Login into Sharedcloud')
 @click.argument('username', required=True)
 @click.argument('password', required=True)
 def login(username, password):
@@ -55,15 +55,19 @@ def login(username, password):
     else:
         print(r.content)
 
+@cli1.group(help='Create/Delete/List Tasks')
+@pass_config
+def task(config):
+    pass
 
-@cli1.command(help='Creates a new Task')
+
+@task.command(help='Creates a new Task')
 @click.option('--name', required=True)
 @click.option('--language', required=True)
 @click.option('--code', required=True)
 @pass_config
-def create_task(config, name, language, code):
-    # sharedcloud create_task --name mything --language python --code "print('Hello')"
-    # Future: sharedcloud create_task --name mything2 --language python --file "myfile.py" --cmd "python myfile.py"
+def create(config, name, language, code):
+    # sharedcloud task create --name mything --language python --code "print('Hello')"
     if not config.token:
         print('Please log in first')
         return
@@ -81,18 +85,41 @@ def create_task(config, name, language, code):
         print(r.content)
 
 
-@cli1.command(help='Creates a new Run')
-@click.option('--task', required=True)
+@task.command(help='Deletes a Task')
+@click.option('--uuid', required=True)
+@pass_config
+def delete(config, uuid):
+    # sharedcloud task delete --uuid <uuid>
+    if not config.token:
+        print('Please log in first')
+        return
+    r = requests.delete('{}/tasks/{}/'.format(BASE_URL, uuid),
+                        headers={'Authorization':'Token {}'.format(config.token)})
+
+    if r.status_code == 204:
+        print('Task {} was deleted!'.format(uuid))
+    else:
+        print(r.content)
+
+
+@cli1.group(help='Create/List Runs')
+@pass_config
+def run(config):
+    pass
+
+
+@run.command(help='Creates a new Run')
+@click.option('--task_uuid', required=True)
 @click.option('--num_jobs', required=True)
 @pass_config
-def create_run(config, task, num_jobs):
-    # sharedcloud create_run --task <uuid> --num_jobs 3
+def create(config, task_uuid, num_jobs):
+    # sharedcloud run create --task_uuid <uuid> --num_jobs 3
     if not config.token:
         print('Please log in first')
         return
 
     r = requests.post('{}/runs/'.format(BASE_URL), data={
-        'task': task,
+        'task': task_uuid,
         'num_jobs': num_jobs
     }, headers={'Authorization':'Token {}'.format(config.token)})
     if r.status_code == 201:
@@ -102,13 +129,19 @@ def create_run(config, task, num_jobs):
         print(r.content)
 
 
-@cli1.command(help='Registers a new Instance')
+@cli1.group(help='Register/Start/List Instances')
+@pass_config
+def instance(config):
+    pass
+
+
+@instance.command(help='Registers a new Instance')
 @click.option('--name', required=True)
 @click.option('--price_per_hour', required=True)
 @click.option('--max_num_jobs', required=True)
 @pass_config
-def register_instance(config, name, price_per_hour, max_num_jobs):
-    # sharedcloud register_instance --name blabla --price_per_hour 2.0 --max_num_jobs 3
+def register(config, name, price_per_hour, max_num_jobs):
+    # sharedcloud instance register --name blabla --price_per_hour 2.0 --max_num_jobs 3
     if not config.token:
         print('Please log in first')
         return
@@ -126,10 +159,28 @@ def register_instance(config, name, price_per_hour, max_num_jobs):
         print(r.content)
 
 
-@cli1.command(help='Starts a new Instance')
-@click.option('--instance', required=True)
+@instance.command(help='Deletes an Instance')
+@click.option('--uuid', required=True)
 @pass_config
-def start_instance(config, instance):
+def delete(config, uuid):
+    # sharedcloud instance delete --uuid <uuid>
+    if not config.token:
+        print('Please log in first')
+        return
+
+    r = requests.delete('{}/instances/{}/'.format(BASE_URL, uuid),
+                        headers={'Authorization':'Token {}'.format(config.token)})
+
+    if r.status_code == 204:
+        print('Instance {} was deleted!'.format(uuid))
+    else:
+        print(r.content)
+
+
+@instance.command(help='Starts an Instance')
+@click.option('--uuid', required=True)
+@pass_config
+def start(config, uuid):
     def _make_put_request(action, instance_uuid, token):
         r = requests.put('{}/instances/{}/{}/'.format(BASE_URL, instance_uuid, action),
                          data={}, headers={'Authorization': 'Token {}'.format(token)})
@@ -190,6 +241,8 @@ def start_instance(config, instance):
 
         return output
 
+    instance_uuid = uuid
+
     JOB_STATUS_WAITING = 1
     JOB_STATUS_IN_PROGRESS = 2
     JOB_STATUS_FINISHED = 3
@@ -205,11 +258,11 @@ def start_instance(config, instance):
 
     try:
         # First, we let our remote know that we are starting the instance
-        _make_put_request('start', instance, config.token)
+        _make_put_request('start', instance_uuid, config.token)
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
         while True:
-            r = _make_put_request('ping', instance, config.token)
+            r = _make_put_request('ping', instance_uuid, config.token)
 
             # If they do have new jobs, we process them...
             jobs = r.json()
@@ -286,4 +339,4 @@ def start_instance(config, instance):
 
         print(e)
         print('Instance stopped!')
-        _make_put_request('stop', instance, config.token)
+        _make_put_request('stop', instance_uuid, config.token)
