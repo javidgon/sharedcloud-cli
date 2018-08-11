@@ -4,7 +4,7 @@ import requests
 import os
 import time
 import shutil
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 
 
 BASE_URL = os.environ['BASE_URL']
@@ -179,11 +179,15 @@ def start_instance(config, instance):
                          '-f', '{}/{}/Dockerfile'.format(CONFIG_FOLDER, job_uuid), job_folder])
                     for line in docker_build.splitlines():
                         output += line + b'\n'
-
-                    docker_run = check_output(
-                        ['docker', 'run', '--name', job_uuid, '{}:latest'.format(job_uuid)])
-                    for line in docker_run.splitlines():
-                        result += line + b'\n'
+                    try:
+                        docker_run = check_output(
+                            ['docker', 'run', '--memory=512m', '--cpus=1', '--name', job_uuid, '{}:latest'.format(job_uuid)])
+                        for line in docker_run.splitlines():
+                            result += line + b'\n'
+                    except CalledProcessError as grepexc:
+                        # When it exists due to a timeout we don't exit the script as it's fine
+                        if grepexc.returncode != 124:
+                            raise
 
                    # Destroy container
                     docker_destroy_container = check_output(
@@ -218,7 +222,16 @@ def start_instance(config, instance):
                 print(r.content)
 
             time.sleep(60)
-    except KeyboardInterrupt:
+    except Exception as e:
+        r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
+            data={
+                "log_output": output,
+                "result": result,
+                "status": 3,
+                "finished_at": datetime.datetime.now(),
+                "cost": 0.0
+                }, headers={'Authorization': 'Token {}'.format(config.token)})
+        print(e)
         print('Instance stopped!')
         requests.put('{}/instances/{}/stop/'.format(BASE_URL, instance),
                      data={}, headers={'Authorization': 'Token {}'.format(config.token)})
