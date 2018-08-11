@@ -138,6 +138,8 @@ def start_instance(config, instance):
     try:
         r = requests.put('{}/instances/{}/start/'.format(BASE_URL, instance),
                          data={}, headers={'Authorization': 'Token {}'.format(config.token)})
+        if r.status_code == 400:
+            raise Exception(r.content)
 
         while True:
             r = requests.put('{}/instances/{}/ping/'.format(BASE_URL, instance),
