@@ -211,8 +211,8 @@ def list(config):
             run.get('uuid'),
             run.get('parameters'),
             timeago.format(datetime.datetime.strptime(run.get('created_at'), DATETIME_FORMAT), now),
-            run.get('task')
-        ] for run in runs], headers=['UUID', 'PARAMETERS', 'CREATED', 'TASK_UUID']))
+            run.get('task_name')
+        ] for run in runs], headers=['UUID', 'PARAMETERS', 'CREATED', 'TASK_NAME']))
     else:
         click.echo(r.content)
 
@@ -247,8 +247,9 @@ def list(config):
             _map_status_to_description(job.get('status')),
             job.get('cmd_output'),
             timeago.format(datetime.datetime.strptime(job.get('created_at'), DATETIME_FORMAT), now),
-            job.get('run')
-        ] for job in jobs], headers=['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID']))
+            job.get('run'),
+            job.get('task_name')
+        ] for job in jobs], headers=['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'TASK_NAME']))
     else:
         click.echo(r.content)
 
