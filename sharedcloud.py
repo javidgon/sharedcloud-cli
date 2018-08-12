@@ -8,12 +8,10 @@ import timeago
 from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
-
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
 BASE_URL = os.environ.get('BASE_URL', 'http://142.93.102.53:8000')
 CONFIG_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CONFIG_FILE = '{}/config'.format(CONFIG_FOLDER)
-
 
 JOB_STATUSES = {
     'WAITING': 1,
@@ -23,11 +21,75 @@ JOB_STATUSES = {
     'TIMEOUT': 5
 }
 
-class ObjectNotFoundException(Exception):
-    pass
+
+# Generic methods
+
+def _create_resource(url, token, data):
+    if not token:
+        click.echo('Please log in first')
+        return
+
+    r = requests.post(url, data=data,
+                      headers={'Authorization': 'Token {}'.format(token)})
+    if r.status_code == 201:
+        result = r.json()
+        click.echo('Resource with UUID {} has been created.'.format(result.get('uuid')))
+    else:
+        click.echo(r.content)
 
 
-now = datetime.datetime.now()
+def _list_resource(url, token, headers, keys, mappers=None):
+    def _get_data(resource, key):
+        value = resource.get(key)
+        if key in mappers.keys():
+            return mappers[key](value)
+        return value
+
+    if not token:
+        click.echo('Please log in first')
+        return
+
+    r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
+
+    if r.status_code == 200:
+        resources = r.json()
+
+        click.echo(tabulate(
+            [[_get_data(resource, key) for key in keys] for resource in resources],
+            headers=headers))
+    else:
+        click.echo(r.content)
+
+
+def _delete_resource(url, token, data):
+    if not token:
+        click.echo('Please log in first')
+        return
+
+    r = requests.delete(url, headers={'Authorization': 'Token {}'.format(token)})
+
+    if r.status_code == 204:
+        click.echo('Resource with UUID {} was deleted.'.format(data.get('uuid')))
+    elif r.status_code == 404:
+        click.echo('Not found resource with UUID {}'.format(data.get('uuid')))
+    else:
+        click.echo(r.content)
+
+# Mappers
+def _map_created_at_to_human_representation(created_at):
+    now = datetime.datetime.now()
+    return timeago.format(datetime.datetime.strptime(created_at, DATETIME_FORMAT), now)
+
+
+def _map_status_to_description(status):
+    for status_name, id in JOB_STATUSES.items():
+        if id == status:
+            return status_name
+
+def _map_code_to_reduced_version(code):
+    if len(code) > 35:
+        return code[:30] + '...'
+    return code
 
 
 class Config(object):
@@ -90,6 +152,7 @@ def _validate_code(ctx, param, code):
         raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
     return code
 
+
 def _validate_file(ctx, param, file):
     file_value = file
     if not file_value and 'code' not in ctx.params:
@@ -97,6 +160,7 @@ def _validate_file(ctx, param, file):
     if file_value and 'code' in ctx.params:
         raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
     return file
+
 
 @task.command(help='Creates a new Task')
 @click.option('--name', required=True)
@@ -108,10 +172,6 @@ def create(config, name, language, file, code):
     # sharedcloud task create --name mything --language python --code "import sys; print(sys.argv)"
     # sharedcloud task create --name mything --language python --file "file.py"
 
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
     if file:
         code = ''
         while True:
@@ -120,41 +180,25 @@ def create(config, name, language, file, code):
                 break
             code += chunk
 
-    r = requests.post('{}/tasks/'.format(BASE_URL), data={
+    _create_resource('{}/tasks/'.format(BASE_URL), config.token, {
         'name': name,
         'language': language,
         'code': code
-    }, headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 201:
-        result = r.json()
-        click.echo('Task {} was created!'.format(result.get('uuid')))
-    else:
-        click.echo(r.content)
+    })
 
 
 @task.command(help='List Tasks')
 @pass_config
 def list(config):
     # sharedcloud task list"
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
-    r = requests.get('{}/tasks/'.format(BASE_URL),
-                     headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 200:
-        tasks = r.json()
-
-        click.echo(tabulate([[
-            task.get('uuid'),
-            task.get('name'),
-            task.get('programming_language'),
-            timeago.format(datetime.datetime.strptime(task.get('created_at'), DATETIME_FORMAT), now),
-        ] for task in tasks], headers=['UUID', 'NAME', 'LANGUAGE', 'CREATED']))
-    else:
-        click.echo(r.content)
+    _list_resource('{}/tasks/'.format(BASE_URL),
+                   config.token,
+                   ['UUID', 'NAME', 'LANGUAGE', 'CODE', 'CREATED'],
+                   ['uuid', 'name', 'programming_language', 'code', 'created_at'],
+                   mappers={
+                       'code': _map_code_to_reduced_version,
+                       'created_at': _map_created_at_to_human_representation
+                   })
 
 
 @task.command(help='Deletes a Task')
@@ -162,18 +206,9 @@ def list(config):
 @pass_config
 def delete(config, uuid):
     # sharedcloud task delete --uuid <uuid>
-    if not config.token:
-        click.echo('Please log in first')
-        return
-    r = requests.delete('{}/tasks/{}/'.format(BASE_URL, uuid),
-                        headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 204:
-        click.echo('Task {} was deleted!'.format(uuid))
-    elif r.status_code == 404:
-        click.echo('Not found Task with UUID {}'.format(uuid))
-    else:
-        click.echo(r.content)
+    _delete_resource('{}/tasks/{}/'.format(BASE_URL, uuid), config.token, {
+        'uuid': uuid
+    })
 
 
 @cli1.group(help='Create/List Runs')
@@ -188,19 +223,23 @@ def _validate_parameters(ctx, param, parameters):
         if not isinstance(parameters_value, tuple):
             raise SyntaxError()
     except SyntaxError:
-        raise click.BadParameter('"parameters" needs to have the structure of a tuple of tuples. e.g., ((1, 2), (3, 4))')
+        raise click.BadParameter(
+            '"parameters" needs to have the structure of a tuple of tuples. e.g., ((1, 2), (3, 4))')
 
     try:
         if len(parameters_value) == 0:
-            raise SyntaxError('"parameters" needs to contain at least one inner tuple. Don\'t forget the comma at the end: e.g., ((1, 2),)')
+            raise SyntaxError(
+                '"parameters" needs to contain at least one inner tuple. Don\'t forget the comma at the end: e.g., ((1, 2),)')
         else:
             for parameter in parameters_value:
                 if not isinstance(parameter, tuple):
-                    raise SyntaxError('"parameters" can only contain inner tuples. Don\'t forget the comma at the end: e.g., ((1, 2),)')
+                    raise SyntaxError(
+                        '"parameters" need to contain inner tuples. Don\'t forget the comma at the end: e.g., ((1, 2),)')
     except SyntaxError as e:
         raise click.BadParameter(e.msg)
 
     return parameters
+
 
 @run.command(help='Creates a new Run')
 @click.option('--task_uuid', required=True, type=click.UUID)
@@ -208,43 +247,23 @@ def _validate_parameters(ctx, param, parameters):
 @pass_config
 def create(config, task_uuid, parameters):
     # sharedcloud run create --task_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
-    r = requests.post('{}/runs/'.format(BASE_URL), data={
+    _create_resource('{}/runs/'.format(BASE_URL), config.token, {
         'task': task_uuid,
         'parameters': parameters
-    }, headers={'Authorization':'Token {}'.format(config.token)})
-    if r.status_code == 201:
-        result = r.json()
-        click.echo('Run {} is running!'.format(result.get('uuid')))
-    else:
-        click.echo(r.content)
+    })
 
 
 @run.command(help='List Runs')
 @pass_config
 def list(config):
     # sharedcloud task list"
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
-    r = requests.get('{}/runs/'.format(BASE_URL),
-                     headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 200:
-        runs = r.json()
-
-        click.echo(tabulate([[
-            run.get('uuid'),
-            run.get('parameters'),
-            timeago.format(datetime.datetime.strptime(run.get('created_at'), DATETIME_FORMAT), now),
-            run.get('task_name')
-        ] for run in runs], headers=['UUID', 'PARAMETERS', 'CREATED', 'TASK_NAME']))
-    else:
-        click.echo(r.content)
+    _list_resource('{}/runs/'.format(BASE_URL),
+                   config.token,
+                   ['UUID', 'PARAMETERS', 'CREATED', 'TASK_NAME'],
+                   ['uuid', 'parameters', 'created_at', 'task_name'],
+                   mappers={
+                       'created_at': _map_created_at_to_human_representation
+                   })
 
 
 @cli1.group(help='List Jobs')
@@ -252,36 +271,19 @@ def list(config):
 def job(config):
     pass
 
+
 @job.command(help='List Jobs')
 @pass_config
 def list(config):
-    def _map_status_to_description(status_id):
-        for status_name, id in JOB_STATUSES.items():
-            if id == status_id:
-                return status_name
+    _list_resource('{}/jobs/'.format(BASE_URL),
+                   config.token,
+                   ['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'TASK_NAME'],
+                   ['uuid', 'incremental_id', 'status', 'cmd_output', 'created_at', 'run', 'task_name'],
+                   mappers={
+                       'status': _map_status_to_description,
+                       'created_at': _map_created_at_to_human_representation
+                   })
 
-    # sharedcloud task list"
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
-    r = requests.get('{}/jobs/'.format(BASE_URL),
-                     headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 200:
-        jobs = r.json()
-
-        click.echo(tabulate([[
-            job.get('uuid'),
-            job.get('incremental_id'),
-            _map_status_to_description(job.get('status')),
-            job.get('cmd_output'),
-            timeago.format(datetime.datetime.strptime(job.get('created_at'), DATETIME_FORMAT), now),
-            job.get('run'),
-            job.get('task_name')
-        ] for job in jobs], headers=['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'TASK_NAME']))
-    else:
-        click.echo(r.content)
 
 @cli1.group(help='Register/Start/List Instances')
 @pass_config
@@ -296,21 +298,11 @@ def instance(config):
 @pass_config
 def register(config, name, price_per_hour, max_num_jobs):
     # sharedcloud instance register --name blabla --price_per_hour 2.0 --max_num_jobs 3
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
-    r = requests.post('{}/instances/'.format(BASE_URL), data={
+    _create_resource('{}/instances/'.format(BASE_URL), config.token, {
         'name': name,
         'price_per_hour': price_per_hour,
         'max_num_jobs': max_num_jobs,
-    }, headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 201:
-        result = r.json()
-        click.echo('Instance {} was registered!'.format(result.get('uuid')))
-    else:
-        click.echo(r.content)
+    })
 
 
 @instance.command(help='Deletes an Instance')
@@ -318,25 +310,18 @@ def register(config, name, price_per_hour, max_num_jobs):
 @pass_config
 def delete(config, uuid):
     # sharedcloud instance delete --uuid <uuid>
-    if not config.token:
-        click.echo('Please log in first')
-        return
-
-    r = requests.delete('{}/instances/{}/'.format(BASE_URL, uuid),
-                        headers={'Authorization':'Token {}'.format(config.token)})
-
-    if r.status_code == 204:
-        click.echo('Instance {} was deleted!'.format(uuid))
-    elif r.status_code == 404:
-        click.echo('Not found Instance with UUID {}'.format(uuid))
-    else:
-        click.echo(r.content)
+    _delete_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
+        'uuid': uuid
+    })
 
 
 @instance.command(help='Starts an Instance')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_config
 def start(config, uuid):
+    class ObjectNotFoundException(Exception):
+        pass
+
     def _make_put_request(action, instance_uuid, token):
         r = requests.put('{}/instances/{}/{}/'.format(BASE_URL, instance_uuid, action),
                          data={}, headers={'Authorization': 'Token {}'.format(token)})
@@ -493,7 +478,8 @@ def start(config, uuid):
                         "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT'],
                         "finished_at": datetime.datetime.now(),
                         "cost": round(
-                            int((datetime.datetime.now()-job_started_at).total_seconds()) * (instance_price_per_hour/3600), 3)
+                            int((datetime.datetime.now() - job_started_at).total_seconds()) * (
+                                        instance_price_per_hour / 3600), 3)
                     }, config.token)
 
             if num_jobs > 0:
@@ -524,5 +510,5 @@ def start(config, uuid):
                         "cmd_output": cmd_output,
                         "status": JOB_STATUSES['FAILED'],
                         "finished_at": datetime.datetime.now(),
-                        "cost": 0.0 # Failed jobs are free
-                        }, config.token)
+                        "cost": 0.0  # Failed jobs are free
+                    }, config.token)
