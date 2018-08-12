@@ -8,6 +8,7 @@ import timeago
 from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
+
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
 BASE_URL = os.environ.get('BASE_URL', 'http://142.93.102.53:8000')
 CONFIG_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
@@ -28,29 +29,25 @@ class ObjectNotFoundException(Exception):
 
 now = datetime.datetime.now()
 
+
 class Config(object):
 
     def __init__(self):
         self.token = None
 
+
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
-def _read_token():
-    if not os.path.exists(CONFIG_FILE):
-        return None
-    with open(CONFIG_FILE, 'r') as f:
-        token = f.read()
-    return token
 
 @click.group()
 @pass_config
 def cli1(config):
-    # We check whether docker is installed
-    try:
-        check_output(
-            ['docker', 'ps'])
-    except CalledProcessError as pgrepexc:
-        exit('Is the Docker daemon running in your machine?')
+    def _read_token():
+        if not os.path.exists(CONFIG_FILE):
+            return None
+        with open(CONFIG_FILE, 'r') as f:
+            token = f.read()
+        return token
 
     # If Config folder doesn't exist, we create it
     if not os.path.exists(CONFIG_FOLDER):
@@ -74,9 +71,10 @@ def login(username, password):
         with open(CONFIG_FILE, 'w+') as f:
             f.write(result.get('token'))
 
-        print('Successfully logged in :)')
+        click.echo('Successfully logged in :)')
     else:
-        print(r.content)
+        click.echo(r.content)
+
 
 @cli1.group(help='Create/Delete/List Tasks')
 @pass_config
@@ -86,13 +84,13 @@ def task(config):
 
 @task.command(help='Creates a new Task')
 @click.option('--name', required=True)
-@click.option('--language', required=True)
+@click.option('--language', required=True, type=click.Choice(['python']))
 @click.option('--code', required=True)
 @pass_config
 def create(config, name, language, code):
     # sharedcloud task create --name mything --language python --code "print('Hello')"
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.post('{}/tasks/'.format(BASE_URL), data={
@@ -103,9 +101,9 @@ def create(config, name, language, code):
 
     if r.status_code == 201:
         result = r.json()
-        print('Task {} was created!'.format(result.get('uuid')))
+        click.echo('Task {} was created!'.format(result.get('uuid')))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @task.command(help='List Tasks')
@@ -113,7 +111,7 @@ def create(config, name, language, code):
 def list(config):
     # sharedcloud task list"
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.get('{}/tasks/'.format(BASE_URL),
@@ -129,26 +127,26 @@ def list(config):
             timeago.format(datetime.datetime.strptime(task.get('created_at'), DATETIME_FORMAT), now),
         ] for task in tasks], headers=['UUID', 'NAME', 'LANGUAGE', 'CREATED']))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @task.command(help='Deletes a Task')
-@click.option('--uuid', required=True)
+@click.option('--uuid', required=True, type=click.UUID)
 @pass_config
 def delete(config, uuid):
     # sharedcloud task delete --uuid <uuid>
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
     r = requests.delete('{}/tasks/{}/'.format(BASE_URL, uuid),
                         headers={'Authorization':'Token {}'.format(config.token)})
 
     if r.status_code == 204:
-        print('Task {} was deleted!'.format(uuid))
+        click.echo('Task {} was deleted!'.format(uuid))
     elif r.status_code == 404:
-        print('Not found Task with UUID {}'.format(uuid))
+        click.echo('Not found Task with UUID {}'.format(uuid))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @cli1.group(help='Create/List Runs')
@@ -157,14 +155,31 @@ def run(config):
     pass
 
 
+def _validate_parameters(ctx, param, parameters_value):
+    try:
+        parameters_value = eval(parameters_value)
+        if not isinstance(parameters_value, tuple):
+            raise SyntaxError()
+    except SyntaxError:
+        raise click.BadParameter('"parameters" needs to have the structure of a tuple of tuples')
+
+    try:
+        if len(parameters_value) == 0:
+            raise SyntaxError('"parameters" needs to contain at least one inner tuple')
+        for parameter in parameters_value:
+            if not isinstance(parameter, tuple):
+                raise SyntaxError('"parameters" can only contain inner tuples')
+    except SyntaxError as e:
+        raise click.BadParameter(e.msg)
+
 @run.command(help='Creates a new Run')
-@click.option('--task_uuid', required=True)
-@click.option('--parameters', required=True)
+@click.option('--task_uuid', required=True, type=click.UUID)
+@click.option('--parameters', required=True, callback=_validate_parameters)
 @pass_config
 def create(config, task_uuid, parameters):
     # sharedcloud run create --task_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.post('{}/runs/'.format(BASE_URL), data={
@@ -173,9 +188,9 @@ def create(config, task_uuid, parameters):
     }, headers={'Authorization':'Token {}'.format(config.token)})
     if r.status_code == 201:
         result = r.json()
-        print('Run {} is running!'.format(result.get('uuid')))
+        click.echo('Run {} is running!'.format(result.get('uuid')))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @run.command(help='List Runs')
@@ -183,7 +198,7 @@ def create(config, task_uuid, parameters):
 def list(config):
     # sharedcloud task list"
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.get('{}/runs/'.format(BASE_URL),
@@ -199,7 +214,7 @@ def list(config):
             run.get('task')
         ] for run in runs], headers=['UUID', 'PARAMETERS', 'CREATED', 'TASK_UUID']))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @cli1.group(help='List Jobs')
@@ -217,7 +232,7 @@ def list(config):
 
     # sharedcloud task list"
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.get('{}/jobs/'.format(BASE_URL),
@@ -235,7 +250,7 @@ def list(config):
             job.get('run')
         ] for job in jobs], headers=['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID']))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 @cli1.group(help='Register/Start/List Instances')
 @pass_config
@@ -245,13 +260,13 @@ def instance(config):
 
 @instance.command(help='Registers a new Instance')
 @click.option('--name', required=True)
-@click.option('--price_per_hour', required=True)
-@click.option('--max_num_jobs', required=True)
+@click.option('--price_per_hour', required=True, type=click.FLOAT)
+@click.option('--max_num_jobs', required=True, type=click.INT)
 @pass_config
 def register(config, name, price_per_hour, max_num_jobs):
     # sharedcloud instance register --name blabla --price_per_hour 2.0 --max_num_jobs 3
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.post('{}/instances/'.format(BASE_URL), data={
@@ -262,33 +277,33 @@ def register(config, name, price_per_hour, max_num_jobs):
 
     if r.status_code == 201:
         result = r.json()
-        print('Instance {} was registered!'.format(result.get('uuid')))
+        click.echo('Instance {} was registered!'.format(result.get('uuid')))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @instance.command(help='Deletes an Instance')
-@click.option('--uuid', required=True)
+@click.option('--uuid', required=True, type=click.UUID)
 @pass_config
 def delete(config, uuid):
     # sharedcloud instance delete --uuid <uuid>
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     r = requests.delete('{}/instances/{}/'.format(BASE_URL, uuid),
                         headers={'Authorization':'Token {}'.format(config.token)})
 
     if r.status_code == 204:
-        print('Instance {} was deleted!'.format(uuid))
+        click.echo('Instance {} was deleted!'.format(uuid))
     elif r.status_code == 404:
-        print('Not found Instance with UUID {}'.format(uuid))
+        click.echo('Not found Instance with UUID {}'.format(uuid))
     else:
-        print(r.content)
+        click.echo(r.content)
 
 
 @instance.command(help='Starts an Instance')
-@click.option('--uuid', required=True)
+@click.option('--uuid', required=True, type=click.UUID)
 @pass_config
 def start(config, uuid):
     def _make_put_request(action, instance_uuid, token):
@@ -367,11 +382,20 @@ def start(config, uuid):
 
         return build_output
 
+    def _exit_if_docker_daemon_is_not_running():
+        try:
+            check_output(
+                ['docker', 'ps'])
+        except CalledProcessError as pgrepexc:
+            exit('Is the Docker daemon running in your machine?')
+
     instance_uuid = uuid
+
+    _exit_if_docker_daemon_is_not_running()
 
     # sharedcloud instance start --uuid <uuid>
     if not config.token:
-        print('Please log in first')
+        click.echo('Please log in first')
         return
 
     job_uuid = None
@@ -390,7 +414,7 @@ def start(config, uuid):
             jobs = r.json()
             num_jobs = len(jobs)
             if num_jobs > 0:
-                print('{} job/s arrived, please be patient...'.format(num_jobs))
+                click.echo('{} job/s arrived, please be patient...'.format(num_jobs))
 
             for job in jobs:
                 # We extract some useful data about the job/instance that we are going to need
@@ -442,17 +466,17 @@ def start(config, uuid):
                     }, config.token)
 
             if num_jobs > 0:
-                print('All jobs were completed!')
+                click.echo('All jobs were completed!')
 
             # We wait 60 seconds until the next check
             time.sleep(60)
 
     except ObjectNotFoundException as e:
-        print('Not found Instance with this UUID')
+        click.echo('Not found Instance with this UUID')
     except Exception as e:
-        print('Instance stopped!')
+        click.echo('Instance stopped!')
         _make_put_request('stop', instance_uuid, config.token)
-        print(e)
+        click.echo(e)
 
         # If the error was provoked by a job, we update our remote with the output
         if job_uuid:
