@@ -10,8 +10,9 @@ from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
 BASE_URL = os.environ.get('BASE_URL', 'http://142.93.102.53:8000')
-CONFIG_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
-CONFIG_FILE = '{}/config'.format(CONFIG_FOLDER)
+DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
+CLIENT_CONFIG_FILE = '{}/client_config'.format(DATA_FOLDER)
+INSTANCE_CONFIG_FILE = '{}/instance_config'.format(DATA_FOLDER)
 
 JOB_STATUSES = {
     'WAITING': 1,
@@ -21,6 +22,10 @@ JOB_STATUSES = {
     'TIMEOUT': 5
 }
 
+INSTANCE_STATUSES = {
+    'NOT_AVAILABLE': 1,
+    'AVAILABLE': 2
+}
 
 # Generic methods
 
@@ -32,10 +37,11 @@ def _create_resource(url, token, data):
     r = requests.post(url, data=data,
                       headers={'Authorization': 'Token {}'.format(token)})
     if r.status_code == 201:
-        result = r.json()
-        click.echo('Resource with UUID {} has been created.'.format(result.get('uuid')))
+        resource = r.json()
+        click.echo('Resource with UUID {} has been created.'.format(resource.get('uuid')))
     else:
         click.echo(r.content)
+    return r
 
 
 def _list_resource(url, token, headers, keys, mappers=None):
@@ -46,7 +52,7 @@ def _list_resource(url, token, headers, keys, mappers=None):
         return value
 
     if not token:
-        click.echo('Please log in first')
+        click.echo('Please log in first.')
         return
 
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
@@ -59,6 +65,7 @@ def _list_resource(url, token, headers, keys, mappers=None):
             headers=headers))
     else:
         click.echo(r.content)
+    return r
 
 
 def _delete_resource(url, token, data):
@@ -71,18 +78,25 @@ def _delete_resource(url, token, data):
     if r.status_code == 204:
         click.echo('Resource with UUID {} was deleted.'.format(data.get('uuid')))
     elif r.status_code == 404:
-        click.echo('Not found resource with UUID {}'.format(data.get('uuid')))
+        click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
     else:
         click.echo(r.content)
+    return r
 
 # Mappers
-def _map_created_at_to_human_representation(created_at):
-    now = datetime.datetime.now()
-    return timeago.format(datetime.datetime.strptime(created_at, DATETIME_FORMAT), now)
+def _map_datetime_obj_to_human_representation(datetime_obj):
+    if datetime_obj:  # It can be None for certain dates
+        now = datetime.datetime.now()
+        return timeago.format(datetime.datetime.strptime(datetime_obj, DATETIME_FORMAT), now)
 
 
-def _map_status_to_description(status):
+def _map_job_status_to_description(status):
     for status_name, id in JOB_STATUSES.items():
+        if id == status:
+            return status_name
+
+def _map_instance_status_to_description(status):
+    for status_name, id in INSTANCE_STATUSES.items():
         if id == status:
             return status_name
 
@@ -93,7 +107,6 @@ def _map_code_to_reduced_version(code):
 
 
 class Config(object):
-
     def __init__(self):
         self.token = None
 
@@ -105,15 +118,15 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @pass_config
 def cli1(config):
     def _read_token():
-        if not os.path.exists(CONFIG_FILE):
+        if not os.path.exists(CLIENT_CONFIG_FILE):
             return None
-        with open(CONFIG_FILE, 'r') as f:
+        with open(CLIENT_CONFIG_FILE, 'r') as f:
             token = f.read()
         return token
 
     # If Config folder doesn't exist, we create it
-    if not os.path.exists(CONFIG_FOLDER):
-        os.makedirs(CONFIG_FOLDER)
+    if not os.path.exists(DATA_FOLDER):
+        os.makedirs(DATA_FOLDER)
 
     config.token = _read_token()
 
@@ -130,7 +143,7 @@ def login(username, password):
 
     if r.status_code == 200:
         result = r.json()
-        with open(CONFIG_FILE, 'w+') as f:
+        with open(CLIENT_CONFIG_FILE, 'w+') as f:
             f.write(result.get('token'))
 
         click.echo('Successfully logged in :)')
@@ -197,7 +210,7 @@ def list(config):
                    ['uuid', 'name', 'programming_language', 'code', 'created_at'],
                    mappers={
                        'code': _map_code_to_reduced_version,
-                       'created_at': _map_created_at_to_human_representation
+                       'created_at': _map_datetime_obj_to_human_representation
                    })
 
 
@@ -262,7 +275,7 @@ def list(config):
                    ['UUID', 'PARAMETERS', 'CREATED', 'TASK_NAME'],
                    ['uuid', 'parameters', 'created_at', 'task_name'],
                    mappers={
-                       'created_at': _map_created_at_to_human_representation
+                       'created_at': _map_datetime_obj_to_human_representation
                    })
 
 
@@ -280,39 +293,79 @@ def list(config):
                    ['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'TASK_NAME'],
                    ['uuid', 'incremental_id', 'status', 'cmd_output', 'created_at', 'run', 'task_name'],
                    mappers={
-                       'status': _map_status_to_description,
-                       'created_at': _map_created_at_to_human_representation
+                       'status': _map_job_status_to_description,
+                       'created_at': _map_datetime_obj_to_human_representation
                    })
 
 
-@cli1.group(help='Register/Start/List Instances')
+@cli1.group(help='Create/Start/List Instances')
 @pass_config
 def instance(config):
     pass
 
 
-@instance.command(help='Registers a new Instance')
+@instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
 @click.option('--price_per_hour', required=True, type=click.FLOAT)
 @click.option('--max_num_jobs', required=True, type=click.INT)
 @pass_config
-def register(config, name, price_per_hour, max_num_jobs):
-    # sharedcloud instance register --name blabla --price_per_hour 2.0 --max_num_jobs 3
-    _create_resource('{}/instances/'.format(BASE_URL), config.token, {
+def create(config, name, price_per_hour, max_num_jobs):
+    # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_jobs 3
+    if os.path.exists(INSTANCE_CONFIG_FILE):
+        click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
+        return None
+
+    r = _create_resource('{}/instances/'.format(BASE_URL), config.token, {
         'name': name,
         'price_per_hour': price_per_hour,
         'max_num_jobs': max_num_jobs,
     })
+    if r.status_code == 201:
+        instance = r.json()
+        with open(INSTANCE_CONFIG_FILE, 'w') as f:
+            f.write(instance.get('uuid'))
+
+
+@instance.command(help='List Instances')
+@pass_config
+def list(config):
+    _list_resource('{}/instances/'.format(BASE_URL),
+                   config.token,
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_ACTIVE_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION'],
+                   ['uuid', 'name', 'status', 'price_per_hour', 'num_active_jobs', 'max_num_jobs', 'last_connection'],
+                   mappers={
+                       'status': _map_instance_status_to_description,
+                       'last_connection': _map_datetime_obj_to_human_representation
+                   })
+
+
+def _validate_uuid(ctx, param, uuid):
+    if not uuid and not os.path.exists(INSTANCE_CONFIG_FILE):
+        raise click.BadParameter('This machine doesn\'t seem to contain an instance. If you still want to delete one that you own, you need to provide the UUID')
+
+    return uuid
 
 
 @instance.command(help='Deletes an Instance')
-@click.option('--uuid', required=True, type=click.UUID)
+@click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
 @pass_config
 def delete(config, uuid):
-    # sharedcloud instance delete --uuid <uuid>
-    _delete_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
+    # sharedcloud instance delete [--uuid <uuid>]
+    def _read_instance_uuid():
+        with open(INSTANCE_CONFIG_FILE, 'r') as f:
+            uuid = f.read()
+        return uuid
+
+    if not uuid:
+        uuid = _read_instance_uuid()
+
+    r = _delete_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
         'uuid': uuid
     })
+
+    if r.status_code == 204:
+        if os.path.exists(INSTANCE_CONFIG_FILE):
+            os.remove(INSTANCE_CONFIG_FILE)
 
 
 @instance.command(help='Starts an Instance')
@@ -350,7 +403,7 @@ def start(config, uuid):
 
         docker_build = check_output(
             ['docker', 'build', '-t', '{}:latest'.format(image_tag),
-             '-f', '{}/{}/Dockerfile'.format(CONFIG_FOLDER, job_uuid), job_folder])
+             '-f', '{}/{}/Dockerfile'.format(DATA_FOLDER, job_uuid), job_folder])
         for line in docker_build.splitlines():
             build_output += line + b'\n'
         return image_tag, build_output
@@ -436,7 +489,7 @@ def start(config, uuid):
                 # We extract some useful data about the job/instance that we are going to need
                 job_uuid = job.get('job_uuid')
                 job_started_at = datetime.datetime.now()
-                job_folder = CONFIG_FOLDER + '/{}'.format(job_uuid)
+                job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
                 instance_price_per_hour = job.get('instance_price_per_hour')
 
                 # We update the job in the remote, so it doesn't get assigned to other instances
