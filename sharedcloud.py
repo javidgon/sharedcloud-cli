@@ -45,6 +45,13 @@ def _read_token():
 @click.group()
 @pass_config
 def cli1(config):
+    # We check whether docker is installed
+    try:
+        check_output(
+            ['docker', 'ps'])
+    except CalledProcessError as pgrepexc:
+        exit('Is the Docker daemon running in your machine?')
+
     # If Config folder doesn't exist, we create it
     if not os.path.exists(CONFIG_FOLDER):
         os.makedirs(CONFIG_FOLDER)
@@ -152,17 +159,17 @@ def run(config):
 
 @run.command(help='Creates a new Run')
 @click.option('--task_uuid', required=True)
-@click.option('--num_jobs', required=True)
+@click.option('--parameters', required=True)
 @pass_config
-def create(config, task_uuid, num_jobs):
-    # sharedcloud run create --task_uuid <uuid> --num_jobs 3
+def create(config, task_uuid, parameters):
+    # sharedcloud run create --task_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
     if not config.token:
         print('Please log in first')
         return
 
     r = requests.post('{}/runs/'.format(BASE_URL), data={
         'task': task_uuid,
-        'num_jobs': num_jobs
+        'parameters': parameters
     }, headers={'Authorization':'Token {}'.format(config.token)})
     if r.status_code == 201:
         result = r.json()
@@ -187,10 +194,10 @@ def list(config):
 
         click.echo(tabulate([[
             run.get('uuid'),
-            run.get('num_jobs'),
+            run.get('parameters'),
             timeago.format(datetime.datetime.strptime(run.get('created_at'), DATETIME_FORMAT), now),
             run.get('task')
-        ] for run in runs], headers=['UUID', 'NUM_JOBS', 'CREATED', 'TASK_UUID']))
+        ] for run in runs], headers=['UUID', 'PARAMETERS', 'CREATED', 'TASK_UUID']))
     else:
         print(r.content)
 
@@ -319,12 +326,12 @@ def start(config, uuid):
 
     def _run_container(image_tag):
         cmd_output = b''
-        container_tag = image_tag
+        container_name = image_tag
         has_timeout = False
 
         try:
             docker_run = check_output(
-                ['docker', 'run', '--memory=512m', '--cpus=1', '--name', container_tag, '{}:latest'.format(image_tag)])
+                ['docker', 'run', '--memory=512m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)])
             for line in docker_run.splitlines():
                 cmd_output += line + b'\n'
         except CalledProcessError as grepexc:
@@ -334,27 +341,35 @@ def start(config, uuid):
             else:
                 raise
 
-        return container_tag, cmd_output, has_timeout
+        return container_name, cmd_output, has_timeout
 
-    def _destroy_container(container_tag, build_output):
-        docker_destroy_container = check_output(
-            ['docker', 'rm', container_tag, '--force'])
-        for line in docker_destroy_container.splitlines():
-            build_output += line + b'\n'
+    def _destroy_container(container_name, build_output):
+        try:
+            docker_destroy_container = check_output(
+                ['docker', 'rm', container_name, '--force'])
+            for line in docker_destroy_container.splitlines():
+                build_output += line + b'\n'
+        except CalledProcessError as rmpexc:
+            # It's fine if it fails as the container probably doesn't exist
+            pass
 
         return build_output
 
     def _destroy_image(image_tag, build_output):
-        docker_destroy_image = check_output(
-            ['docker', 'rmi', image_tag, '--force'])
-        for line in docker_destroy_image.splitlines():
-            build_output += line + b'\n'
+        try:
+            docker_destroy_image = check_output(
+                ['docker', 'rmi', image_tag, '--force'])
+            for line in docker_destroy_image.splitlines():
+                build_output += line + b'\n'
+        except CalledProcessError as rmipexc:
+            # It's fine if it fails as the image probably doesn't exist
+            pass
 
         return build_output
 
     instance_uuid = uuid
 
-    # sharedcloud start_instance --instance <uuid>
+    # sharedcloud instance start --uuid <uuid>
     if not config.token:
         print('Please log in first')
         return
@@ -408,10 +423,10 @@ def start(config, uuid):
                 # use to run our container
                 image_tag, build_output = _generate_image(job_uuid, job_folder)
                 # After the image has been generated, we run our container and calculate our result
-                container_tag, cmd_output, has_timeout = _run_container(image_tag)
+                container_name, cmd_output, has_timeout = _run_container(image_tag)
 
                 # After this has been done, we make sure to clean up the image, container and job folder
-                build_output = _destroy_container(container_tag, build_output)
+                build_output = _destroy_container(container_name, build_output)
                 build_output = _destroy_image(image_tag, build_output)
                 shutil.rmtree(job_folder)
 
@@ -441,6 +456,10 @@ def start(config, uuid):
 
         # If the error was provoked by a job, we update our remote with the output
         if job_uuid:
+            # Just in case, we try to delete the container and the image, in case they were pending
+            build_output = _destroy_container(job_uuid, build_output)
+            build_output = _destroy_image(job_uuid, build_output)
+
             if build_output and cmd_output:
                 _make_patch_request(
                     job_uuid, {
@@ -450,7 +469,3 @@ def start(config, uuid):
                         "finished_at": datetime.datetime.now(),
                         "cost": 0.0 # Failed jobs are free
                         }, config.token)
-
-            # Just in case, we try to delete the container and the image, in case they were pending
-            build_output = _destroy_container(job_uuid, build_output)
-            build_output = _destroy_image(job_uuid, build_output)
