@@ -82,16 +82,43 @@ def task(config):
     pass
 
 
+def _validate_code(ctx, param, code):
+    code_value = code
+    if not code_value and 'file' not in ctx.params:
+        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
+    if code_value and 'file' in ctx.params:
+        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+    return code
+
+def _validate_file(ctx, param, file):
+    file_value = file
+    if not file_value and 'code' not in ctx.params:
+        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
+    if file_value and 'code' in ctx.params:
+        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+    return file
+
 @task.command(help='Creates a new Task')
 @click.option('--name', required=True)
 @click.option('--language', required=True, type=click.Choice(['python']))
-@click.option('--code', required=True)
+@click.option('--file', required=False, callback=_validate_file, type=click.File())
+@click.option('--code', required=False, callback=_validate_code)
 @pass_config
-def create(config, name, language, code):
-    # sharedcloud task create --name mything --language python --code "print('Hello')"
+def create(config, name, language, file, code):
+    # sharedcloud task create --name mything --language python --code "import sys; print(sys.argv)"
+    # sharedcloud task create --name mything --language python --file "file.py"
+
     if not config.token:
         click.echo('Please log in first')
         return
+
+    if file:
+        code = ''
+        while True:
+            chunk = file.read(1024)
+            if not chunk:
+                break
+            code += chunk
 
     r = requests.post('{}/tasks/'.format(BASE_URL), data={
         'name': name,
@@ -155,22 +182,25 @@ def run(config):
     pass
 
 
-def _validate_parameters(ctx, param, parameters_value):
+def _validate_parameters(ctx, param, parameters):
     try:
-        parameters_value = eval(parameters_value)
+        parameters_value = eval(parameters)
         if not isinstance(parameters_value, tuple):
             raise SyntaxError()
     except SyntaxError:
-        raise click.BadParameter('"parameters" needs to have the structure of a tuple of tuples')
+        raise click.BadParameter('"parameters" needs to have the structure of a tuple of tuples. e.g., ((1, 2), (3, 4))')
 
     try:
         if len(parameters_value) == 0:
-            raise SyntaxError('"parameters" needs to contain at least one inner tuple')
-        for parameter in parameters_value:
-            if not isinstance(parameter, tuple):
-                raise SyntaxError('"parameters" can only contain inner tuples')
+            raise SyntaxError('"parameters" needs to contain at least one inner tuple. Don\'t forget the comma at the end: e.g., ((1, 2),)')
+        else:
+            for parameter in parameters_value:
+                if not isinstance(parameter, tuple):
+                    raise SyntaxError('"parameters" can only contain inner tuples. Don\'t forget the comma at the end: e.g., ((1, 2),)')
     except SyntaxError as e:
         raise click.BadParameter(e.msg)
+
+    return parameters
 
 @run.command(help='Creates a new Run')
 @click.option('--task_uuid', required=True, type=click.UUID)
@@ -469,6 +499,8 @@ def start(config, uuid):
             if num_jobs > 0:
                 click.echo('All jobs were completed!')
 
+            # We reset the current job_uuid, as everything was processed successfully
+            job_uuid = None
             # We wait 60 seconds until the next check
             time.sleep(60)
 
