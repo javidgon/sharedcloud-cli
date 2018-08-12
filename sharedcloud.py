@@ -15,7 +15,7 @@ CLIENT_CONFIG_FILE = '{}/client_config'.format(DATA_FOLDER)
 INSTANCE_CONFIG_FILE = '{}/instance_config'.format(DATA_FOLDER)
 
 JOB_STATUSES = {
-    'WAITING': 1,
+    'CREATED': 1,
     'IN_PROGRESS': 2,
     'SUCCEEDED': 3,
     'FAILED': 4,
