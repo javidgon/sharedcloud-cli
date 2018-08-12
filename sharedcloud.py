@@ -29,15 +29,31 @@ INSTANCE_STATUSES = {
 
 # Utils
 
+def _read_token():
+    if not os.path.exists(CLIENT_CONFIG_FILE):
+        return None
+    with open(CLIENT_CONFIG_FILE, 'r') as f:
+        token = f.read()
+    return token
+
+
 def _read_instance_uuid():
     with open(INSTANCE_CONFIG_FILE, 'r') as f:
         uuid = f.read()
     return uuid
 
+
 def _exit_if_user_is_logged_out(token):
     if not token:
         exit('You seem to be logged out. Please log in first')
 
+
+def _get_server_datetime(token):
+    r = requests.get('{}/server-datetime/'.format(BASE_URL),
+                     headers={'Authorization': 'Token {}'.format(token)})
+    if r.status_code == 200:
+        response = r.json()
+        return datetime.datetime.strptime(response.get('datetime'), DATETIME_FORMAT)
 
 # Generic methods
 
@@ -53,10 +69,10 @@ def _create_resource(url, token, data):
 
 
 def _list_resource(url, token, headers, keys, mappers=None):
-    def _get_data(resource, key):
+    def _get_data(resource, key, token):
         value = resource.get(key)
         if key in mappers.keys():
-            return mappers[key](value)
+            return mappers[key](value, token)
         return value
 
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
@@ -65,7 +81,7 @@ def _list_resource(url, token, headers, keys, mappers=None):
         resources = r.json()
 
         click.echo(tabulate(
-            [[_get_data(resource, key) for key in keys] for resource in resources],
+            [[_get_data(resource, key, token) for key in keys] for resource in resources],
             headers=headers))
     else:
         click.echo(r.content)
@@ -102,23 +118,24 @@ def _delete_resource(url, token, data):
     return r
 
 # Mappers
-def _map_datetime_obj_to_human_representation(datetime_obj):
+def _map_datetime_obj_to_human_representation(datetime_obj, token):
+    now = _get_server_datetime(token)
+
     if datetime_obj:  # It can be None for certain dates
-        now = datetime.datetime.now()
         return timeago.format(datetime.datetime.strptime(datetime_obj, DATETIME_FORMAT), now)
 
 
-def _map_job_status_to_description(status):
+def _map_job_status_to_description(status, token):
     for status_name, id in JOB_STATUSES.items():
         if id == status:
             return status_name
 
-def _map_instance_status_to_description(status):
+def _map_instance_status_to_description(status, token):
     for status_name, id in INSTANCE_STATUSES.items():
         if id == status:
             return status_name
 
-def _map_code_to_reduced_version(code):
+def _map_code_to_reduced_version(code, token):
     if len(code) > 35:
         return code[:30] + '...'
     return code
@@ -186,13 +203,6 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.group()
 @pass_config
 def cli1(config):
-    def _read_token():
-        if not os.path.exists(CLIENT_CONFIG_FILE):
-            return None
-        with open(CLIENT_CONFIG_FILE, 'r') as f:
-            token = f.read()
-        return token
-
     # If Config folder doesn't exist, we create it
     if not os.path.exists(DATA_FOLDER):
         os.makedirs(DATA_FOLDER)
@@ -567,15 +577,12 @@ def start(config, uuid):
             for job in jobs:
                 # We extract some useful data about the job/instance that we are going to need
                 job_uuid = job.get('job_uuid')
-                job_started_at = datetime.datetime.now()
                 job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
-                instance_price_per_hour = job.get('instance_price_per_hour')
 
                 # We update the job in the remote, so it doesn't get assigned to other instances
                 _make_patch_request(
                     job_uuid, {
-                        "status": JOB_STATUSES['IN_PROGRESS'],
-                        "started_at": job_started_at
+                        "status": JOB_STATUSES['IN_PROGRESS']
                     }, config.token)
 
                 # Now we build the job folder in the local computer, so we can do the job
@@ -607,11 +614,7 @@ def start(config, uuid):
                     job_uuid, {
                         "build_output": build_output,
                         "cmd_output": cmd_output,
-                        "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT'],
-                        "finished_at": datetime.datetime.now(),
-                        "cost": round(
-                            int((datetime.datetime.now() - job_started_at).total_seconds()) * (
-                                        instance_price_per_hour / 3600), 3)
+                        "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT']
                     }, config.token)
 
             if num_jobs > 0:
@@ -640,7 +643,5 @@ def start(config, uuid):
                     job_uuid, {
                         "build_output": build_output,
                         "cmd_output": cmd_output,
-                        "status": JOB_STATUSES['FAILED'],
-                        "finished_at": datetime.datetime.now(),
-                        "cost": 0.0  # Failed jobs are free
+                        "status": JOB_STATUSES['FAILED']
                     }, config.token)
