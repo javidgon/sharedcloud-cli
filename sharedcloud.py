@@ -27,13 +27,21 @@ INSTANCE_STATUSES = {
     'AVAILABLE': 2
 }
 
+# Utils
+
+def _read_instance_uuid():
+    with open(INSTANCE_CONFIG_FILE, 'r') as f:
+        uuid = f.read()
+    return uuid
+
+def _exit_if_user_is_logged_out(token):
+    if not token:
+        exit('You seem to be logged out. Please log in first')
+
+
 # Generic methods
 
 def _create_resource(url, token, data):
-    if not token:
-        click.echo('Please log in first')
-        return
-
     r = requests.post(url, data=data,
                       headers={'Authorization': 'Token {}'.format(token)})
     if r.status_code == 201:
@@ -51,10 +59,6 @@ def _list_resource(url, token, headers, keys, mappers=None):
             return mappers[key](value)
         return value
 
-    if not token:
-        click.echo('Please log in first.')
-        return
-
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
@@ -68,11 +72,25 @@ def _list_resource(url, token, headers, keys, mappers=None):
     return r
 
 
-def _delete_resource(url, token, data):
-    if not token:
-        click.echo('Please log in first')
-        return
+def _update_resource(url, token, data):
+    # We discard None values
+    cleaned_data = {}
+    for key, value in data.items():
+        if value:
+            cleaned_data[key] = value
 
+    r = requests.patch(url, data=cleaned_data, headers={'Authorization': 'Token {}'.format(token)})
+
+    if r.status_code == 200:
+        click.echo('Resource with UUID {} was updated.'.format(data.get('uuid')))
+    elif r.status_code == 404:
+        click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+    else:
+        click.echo(r.content)
+    return r
+
+
+def _delete_resource(url, token, data):
     r = requests.delete(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 204:
@@ -104,6 +122,57 @@ def _map_code_to_reduced_version(code):
     if len(code) > 35:
         return code[:30] + '...'
     return code
+
+
+# Validators
+
+def _validate_parameters(ctx, param, parameters):
+    try:
+        parameters_value = eval(parameters)
+        if not isinstance(parameters_value, tuple):
+            raise SyntaxError()
+    except SyntaxError:
+        raise click.BadParameter(
+            '"parameters" needs to have the structure of a tuple of tuples. e.g., ((1, 2), (3, 4))')
+
+    try:
+        if len(parameters_value) == 0:
+            raise SyntaxError(
+                '"parameters" needs to contain at least one inner tuple. Don\'t forget the comma at the end: e.g., ((1, 2),)')
+        else:
+            for parameter in parameters_value:
+                if not isinstance(parameter, tuple):
+                    raise SyntaxError(
+                        '"parameters" need to contain inner tuples. Don\'t forget the comma at the end: e.g., ((1, 2),)')
+    except SyntaxError as e:
+        raise click.BadParameter(e.msg)
+
+    return parameters
+
+
+def _validate_code(ctx, param, code):
+    code_value = code
+    if not code_value and 'file' not in ctx.params:
+        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
+    if code_value and 'file' in ctx.params:
+        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+    return code
+
+
+def _validate_file(ctx, param, file):
+    file_value = file
+    if not file_value and 'code' not in ctx.params:
+        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
+    if file_value and 'code' in ctx.params:
+        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+    return file
+
+
+def _validate_uuid(ctx, param, uuid):
+    if not uuid and not os.path.exists(INSTANCE_CONFIG_FILE):
+        raise click.BadParameter('This machine doesn\'t seem to contain an instance. If you still want to refer to one that you own, you need to provide the UUID')
+
+    return uuid
 
 
 class Config(object):
@@ -151,28 +220,21 @@ def login(username, password):
         click.echo(r.content)
 
 
+@cli1.command(help='Logout from Sharedcloud')
+def logout():
+    # sharedcloud logout
+    if os.path.exists(CLIENT_CONFIG_FILE):
+        os.remove(CLIENT_CONFIG_FILE)
+
+        click.echo('Successfully logged out.')
+    else:
+        click.echo('You were already logged out.')
+
+
 @cli1.group(help='Create/Delete/List Tasks')
 @pass_config
 def task(config):
-    pass
-
-
-def _validate_code(ctx, param, code):
-    code_value = code
-    if not code_value and 'file' not in ctx.params:
-        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
-    if code_value and 'file' in ctx.params:
-        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
-    return code
-
-
-def _validate_file(ctx, param, file):
-    file_value = file
-    if not file_value and 'code' not in ctx.params:
-        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
-    if file_value and 'code' in ctx.params:
-        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
-    return file
+    _exit_if_user_is_logged_out(config.token)
 
 
 @task.command(help='Creates a new Task')
@@ -184,7 +246,6 @@ def _validate_file(ctx, param, file):
 def create(config, name, language, file, code):
     # sharedcloud task create --name mything --language python --code "import sys; print(sys.argv)"
     # sharedcloud task create --name mything --language python --file "file.py"
-
     if file:
         code = ''
         while True:
@@ -194,6 +255,32 @@ def create(config, name, language, file, code):
             code += chunk
 
     _create_resource('{}/tasks/'.format(BASE_URL), config.token, {
+        'name': name,
+        'language': language,
+        'code': code
+    })
+
+
+@task.command(help='Update a Task')
+@click.option('--uuid', required=True, type=click.UUID)
+@click.option('--name', required=False)
+@click.option('--language', required=False, type=click.Choice(['python']))
+@click.option('--file', required=False, type=click.File())
+@click.option('--code', required=False)
+@pass_config
+def update(config, uuid, name, language, file, code):
+    # sharedcloud task update --uuid <uuid> --name mything --language python --code "import sys; print(sys.argv)"
+    # sharedcloud task update  --uuid <uuid> --name mything --language python --file "file.py"
+    if file:
+        code = ''
+        while True:
+            chunk = file.read(1024)
+            if not chunk:
+                break
+            code += chunk
+
+    _update_resource('{}/tasks/{}/'.format(BASE_URL, uuid), config.token, {
+        'uuid': uuid,
         'name': name,
         'language': language,
         'code': code
@@ -227,31 +314,7 @@ def delete(config, uuid):
 @cli1.group(help='Create/List Runs')
 @pass_config
 def run(config):
-    pass
-
-
-def _validate_parameters(ctx, param, parameters):
-    try:
-        parameters_value = eval(parameters)
-        if not isinstance(parameters_value, tuple):
-            raise SyntaxError()
-    except SyntaxError:
-        raise click.BadParameter(
-            '"parameters" needs to have the structure of a tuple of tuples. e.g., ((1, 2), (3, 4))')
-
-    try:
-        if len(parameters_value) == 0:
-            raise SyntaxError(
-                '"parameters" needs to contain at least one inner tuple. Don\'t forget the comma at the end: e.g., ((1, 2),)')
-        else:
-            for parameter in parameters_value:
-                if not isinstance(parameter, tuple):
-                    raise SyntaxError(
-                        '"parameters" need to contain inner tuples. Don\'t forget the comma at the end: e.g., ((1, 2),)')
-    except SyntaxError as e:
-        raise click.BadParameter(e.msg)
-
-    return parameters
+    _exit_if_user_is_logged_out(config.token)
 
 
 @run.command(help='Creates a new Run')
@@ -263,6 +326,16 @@ def create(config, task_uuid, parameters):
     _create_resource('{}/runs/'.format(BASE_URL), config.token, {
         'task': task_uuid,
         'parameters': parameters
+    })
+
+
+@run.command(help='Deletes a Run')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_config
+def delete(config, uuid):
+    # sharedcloud run delete --uuid <uuid>
+    _delete_resource('{}/runs/{}/'.format(BASE_URL, uuid), config.token, {
+        'uuid': uuid
     })
 
 
@@ -282,7 +355,7 @@ def list(config):
 @cli1.group(help='List Jobs')
 @pass_config
 def job(config):
-    pass
+    _exit_if_user_is_logged_out(config.token)
 
 
 @job.command(help='List Jobs')
@@ -301,7 +374,7 @@ def list(config):
 @cli1.group(help='Create/Start/List Instances')
 @pass_config
 def instance(config):
-    pass
+    _exit_if_user_is_logged_out(config.token)
 
 
 @instance.command(help='Creates a new Instance')
@@ -339,11 +412,21 @@ def list(config):
                    })
 
 
-def _validate_uuid(ctx, param, uuid):
-    if not uuid and not os.path.exists(INSTANCE_CONFIG_FILE):
-        raise click.BadParameter('This machine doesn\'t seem to contain an instance. If you still want to delete one that you own, you need to provide the UUID')
+@instance.command(help='Update an Instance')
+@click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
+@click.option('--name', required=False)
+@click.option('--price_per_hour', required=False, type=click.FLOAT)
+@click.option('--max_num_jobs', required=False, type=click.INT)
+@pass_config
+def update(config, uuid, name, price_per_hour, max_num_jobs):
+    # sharedcloud instance update --name blabla --price_per_hour 2.0 --max_num_jobs 3
 
-    return uuid
+    _update_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
+        'uuid': uuid,
+        'name': name,
+        'price_per_hour': price_per_hour,
+        'max_num_jobs': max_num_jobs,
+    })
 
 
 @instance.command(help='Deletes an Instance')
@@ -351,10 +434,6 @@ def _validate_uuid(ctx, param, uuid):
 @pass_config
 def delete(config, uuid):
     # sharedcloud instance delete [--uuid <uuid>]
-    def _read_instance_uuid():
-        with open(INSTANCE_CONFIG_FILE, 'r') as f:
-            uuid = f.read()
-        return uuid
 
     if not uuid:
         uuid = _read_instance_uuid()
@@ -369,7 +448,7 @@ def delete(config, uuid):
 
 
 @instance.command(help='Starts an Instance')
-@click.option('--uuid', required=True, type=click.UUID)
+@click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
 @pass_config
 def start(config, uuid):
     class ObjectNotFoundException(Exception):
@@ -458,14 +537,14 @@ def start(config, uuid):
         except CalledProcessError as pgrepexc:
             exit('Is the Docker daemon running in your machine?')
 
+    if not uuid:
+        uuid = _read_instance_uuid()
+
     instance_uuid = uuid
 
     _exit_if_docker_daemon_is_not_running()
 
     # sharedcloud instance start --uuid <uuid>
-    if not config.token:
-        click.echo('Please log in first')
-        return
 
     job_uuid = None
     build_output = b''
