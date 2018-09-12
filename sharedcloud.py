@@ -249,13 +249,13 @@ def task(config):
 
 @task.command(help='Creates a new Task')
 @click.option('--name', required=True)
-@click.option('--language', required=True, type=click.Choice(['python']))
+@click.option('--runtime', required=True, type=click.Choice(['python37']))
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
 @click.option('--code', required=False, callback=_validate_code)
 @pass_config
-def create(config, name, language, file, code):
-    # sharedcloud task create --name mything --language python --code "import sys; print(sys.argv)"
-    # sharedcloud task create --name mything --language python --file "file.py"
+def create(config, name, runtime, file, code):
+    # sharedcloud task create --name mything --runtime python37 --code "import sys; print(sys.argv)"
+    # sharedcloud task create --name mything --runtime python37 --file "file.py"
     if file:
         code = ''
         while True:
@@ -266,7 +266,7 @@ def create(config, name, language, file, code):
 
     _create_resource('{}/tasks/'.format(BASE_URL), config.token, {
         'name': name,
-        'language': language,
+        'runtime': runtime,
         'code': code
     })
 
@@ -274,13 +274,13 @@ def create(config, name, language, file, code):
 @task.command(help='Update a Task')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--name', required=False)
-@click.option('--language', required=False, type=click.Choice(['python']))
+@click.option('--runtime', required=False, type=click.Choice(['python37']))
 @click.option('--file', required=False, type=click.File())
 @click.option('--code', required=False)
 @pass_config
-def update(config, uuid, name, language, file, code):
-    # sharedcloud task update --uuid <uuid> --name mything --language python --code "import sys; print(sys.argv)"
-    # sharedcloud task update  --uuid <uuid> --name mything --language python --file "file.py"
+def update(config, uuid, name, runtime, file, code):
+    # sharedcloud task update --uuid <uuid> --name mything --runtime python37 --code "import sys; print(sys.argv)"
+    # sharedcloud task update  --uuid <uuid> --name mything --runtime python37 --file "file.py"
     if file:
         code = ''
         while True:
@@ -292,7 +292,7 @@ def update(config, uuid, name, language, file, code):
     _update_resource('{}/tasks/{}/'.format(BASE_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
-        'language': language,
+        'runtime': runtime,
         'code': code
     })
 
@@ -303,8 +303,8 @@ def list(config):
     # sharedcloud task list"
     _list_resource('{}/tasks/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'NAME', 'LANGUAGE', 'CODE', 'CREATED'],
-                   ['uuid', 'name', 'programming_language', 'code', 'created_at'],
+                   ['UUID', 'NAME', 'RUNTIME', 'CODE', 'CREATED'],
+                   ['uuid', 'name', 'runtime', 'code', 'created_at'],
                    mappers={
                        'code': _map_code_to_reduced_version,
                        'created_at': _map_datetime_obj_to_human_representation
