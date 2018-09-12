@@ -241,21 +241,21 @@ def logout():
         click.echo('You were already logged out.')
 
 
-@cli1.group(help='Create/Delete/List Tasks')
+@cli1.group(help='Create/Delete/List Functions')
 @pass_config
-def task(config):
+def function(config):
     _exit_if_user_is_logged_out(config.token)
 
 
-@task.command(help='Creates a new Task')
+@function.command(help='Creates a new Function')
 @click.option('--name', required=True)
 @click.option('--runtime', required=True, type=click.Choice(['python37']))
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
 @click.option('--code', required=False, callback=_validate_code)
 @pass_config
 def create(config, name, runtime, file, code):
-    # sharedcloud task create --name mything --runtime python37 --code "import sys; print(sys.argv)"
-    # sharedcloud task create --name mything --runtime python37 --file "file.py"
+    # sharedcloud function create --name mything --runtime python37 --code "import sys; print(sys.argv)"
+    # sharedcloud function create --name mything --runtime python37 --file "file.py"
     if file:
         code = ''
         while True:
@@ -264,14 +264,14 @@ def create(config, name, runtime, file, code):
                 break
             code += chunk
 
-    _create_resource('{}/tasks/'.format(BASE_URL), config.token, {
+    _create_resource('{}/functions/'.format(BASE_URL), config.token, {
         'name': name,
         'runtime': runtime,
         'code': code
     })
 
 
-@task.command(help='Update a Task')
+@function.command(help='Update a Function')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--name', required=False)
 @click.option('--runtime', required=False, type=click.Choice(['python37']))
@@ -279,8 +279,8 @@ def create(config, name, runtime, file, code):
 @click.option('--code', required=False)
 @pass_config
 def update(config, uuid, name, runtime, file, code):
-    # sharedcloud task update --uuid <uuid> --name mything --runtime python37 --code "import sys; print(sys.argv)"
-    # sharedcloud task update  --uuid <uuid> --name mything --runtime python37 --file "file.py"
+    # sharedcloud function update --uuid <uuid> --name mything --runtime python37 --code "import sys; print(sys.argv)"
+    # sharedcloud function update  --uuid <uuid> --name mything --runtime python37 --file "file.py"
     if file:
         code = ''
         while True:
@@ -289,7 +289,7 @@ def update(config, uuid, name, runtime, file, code):
                 break
             code += chunk
 
-    _update_resource('{}/tasks/{}/'.format(BASE_URL, uuid), config.token, {
+    _update_resource('{}/functions/{}/'.format(BASE_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
         'runtime': runtime,
@@ -297,11 +297,11 @@ def update(config, uuid, name, runtime, file, code):
     })
 
 
-@task.command(help='List Tasks')
+@function.command(help='List Functions')
 @pass_config
 def list(config):
-    # sharedcloud task list"
-    _list_resource('{}/tasks/'.format(BASE_URL),
+    # sharedcloud function list"
+    _list_resource('{}/functions/'.format(BASE_URL),
                    config.token,
                    ['UUID', 'NAME', 'RUNTIME', 'CODE', 'CREATED'],
                    ['uuid', 'name', 'runtime', 'code', 'created_at'],
@@ -311,12 +311,12 @@ def list(config):
                    })
 
 
-@task.command(help='Deletes a Task')
+@function.command(help='Deletes a Function')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_config
 def delete(config, uuid):
-    # sharedcloud task delete --uuid <uuid>
-    _delete_resource('{}/tasks/{}/'.format(BASE_URL, uuid), config.token, {
+    # sharedcloud function delete --uuid <uuid>
+    _delete_resource('{}/functions/{}/'.format(BASE_URL, uuid), config.token, {
         'uuid': uuid
     })
 
@@ -328,13 +328,13 @@ def run(config):
 
 
 @run.command(help='Creates a new Run')
-@click.option('--task_uuid', required=True, type=click.UUID)
+@click.option('--function_uuid', required=True, type=click.UUID)
 @click.option('--parameters', required=True, callback=_validate_parameters)
 @pass_config
-def create(config, task_uuid, parameters):
-    # sharedcloud run create --task_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
+def create(config, function_uuid, parameters):
+    # sharedcloud run create --function_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
     _create_resource('{}/runs/'.format(BASE_URL), config.token, {
-        'task': task_uuid,
+        'function': function_uuid,
         'parameters': parameters
     })
 
@@ -352,11 +352,11 @@ def delete(config, uuid):
 @run.command(help='List Runs')
 @pass_config
 def list(config):
-    # sharedcloud task list"
+    # sharedcloud function list"
     _list_resource('{}/runs/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'PARAMETERS', 'CREATED', 'TASK_NAME'],
-                   ['uuid', 'parameters', 'created_at', 'task_name'],
+                   ['UUID', 'PARAMETERS', 'CREATED', 'FUNCTION_NAME'],
+                   ['uuid', 'parameters', 'created_at', 'function_name'],
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
                    })
@@ -373,8 +373,8 @@ def job(config):
 def list(config):
     _list_resource('{}/jobs/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'TASK_NAME'],
-                   ['uuid', 'incremental_id', 'status', 'cmd_output', 'created_at', 'run', 'task_name'],
+                   ['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['uuid', 'incremental_id', 'status', 'cmd_output', 'created_at', 'run', 'function_name'],
                    mappers={
                        'status': _map_job_status_to_description,
                        'created_at': _map_datetime_obj_to_human_representation
