@@ -140,6 +140,11 @@ def _map_code_to_reduced_version(code, token):
         return code[:30] + '...'
     return code
 
+def _map_cost_number_to_version_with_currency(cost, token):
+    return '${}'.format(cost)
+
+def _map_duration_to_readable_version(duration, token):
+    return '{} seconds'.format(duration)
 
 # Validators
 
@@ -173,6 +178,7 @@ def _validate_code(ctx, param, code):
         raise click.BadParameter('Either "code" or "file" parameters need to be provided')
     if code_value and 'file' in ctx.params:
         raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+
     return code
 
 
@@ -182,6 +188,7 @@ def _validate_file(ctx, param, file):
         raise click.BadParameter('Either "code" or "file" parameters need to be provided')
     if file_value and 'code' in ctx.params:
         raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+
     return file
 
 
@@ -254,8 +261,9 @@ def function(config):
 @click.option('--code', required=False, callback=_validate_code)
 @pass_config
 def create(config, name, runtime, file, code):
-    # sharedcloud function create --name mything --runtime python37 --code "import sys; print(sys.argv)"
+    # sharedcloud function create --name mything --runtime python37 --code "def handler(args): return 2"
     # sharedcloud function create --name mything --runtime python37 --file "file.py"
+
     if file:
         code = ''
         while True:
@@ -263,6 +271,9 @@ def create(config, name, runtime, file, code):
             if not chunk:
                 break
             code += chunk
+
+    if 'def handler(args):' not in code:
+        raise click.BadParameter('Please make sure to use the following signature for the function: "def handler(args):"')
 
     _create_resource('{}/functions/'.format(BASE_URL), config.token, {
         'name': name,
@@ -373,9 +384,11 @@ def job(config):
 def list(config):
     _list_resource('{}/jobs/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME'],
-                   ['uuid', 'incremental_id', 'status', 'function_output', 'created_at', 'run', 'function_name'],
+                   ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['uuid', 'incremental_id', 'status', 'function_output', 'function_response', 'cost', 'duration', 'created_at', 'run', 'function_name'],
                    mappers={
+                       'cost': _map_cost_number_to_version_with_currency,
+                       'duration': _map_duration_to_readable_version,
                        'status': _map_job_status_to_description,
                        'created_at': _map_datetime_obj_to_human_representation
                    })
@@ -501,14 +514,26 @@ def start(config, uuid):
 
     def _run_container(image_tag):
         function_output = b''
+        function_response = b''
         container_name = image_tag
         has_timeout = False
+        def _extract_output(output):
+            function_output = b''
+            function_response = b''
+            for line in output.splitlines():
+                if 'ResponseHandler' in str(line):
+                    start = str(line).find('|') - 1
+                    end = str(line).find('?') - 2
+                    function_response = line[start:end]
+                else:
+                    function_output += line + b'\n'
+
+            return function_output, function_response
 
         try:
             docker_run = check_output(
                 ['docker', 'run', '--memory=512m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)])
-            for line in docker_run.splitlines():
-                function_output += line + b'\n'
+            function_output, function_response = _extract_output(docker_run)
         except CalledProcessError as grepexc:
             # When it exists due to a timeout we don't exit the cli as it's kind of an expected error
             if grepexc.returncode == 124:
@@ -516,7 +541,7 @@ def start(config, uuid):
             else:
                 raise
 
-        return container_name, function_output, has_timeout
+        return container_name, function_output, function_response, has_timeout
 
     def _destroy_container(container_name, build_output):
         try:
@@ -561,6 +586,7 @@ def start(config, uuid):
     job_uuid = None
     build_output = b''
     function_output = b''
+    function_response = b''
 
     try:
         print('Ready to take Jobs...')
@@ -599,13 +625,13 @@ def start(config, uuid):
 
                 # Here we create files from the received Dockerfile and Code
                 _create_file_from_data(job.get('dockerfile'), '{}/Dockerfile'.format(job_folder))
-                _create_file_from_data(job.get('code'), '{}/file.py'.format(job_folder))
+                _create_file_from_data(job.get('wrapped_code'), '{}/file.py'.format(job_folder))
 
                 # After the files have been created, we can generate the image that we are going to
                 # use to run our container
                 image_tag, build_output = _generate_image(job_uuid, job_folder)
                 # After the image has been generated, we run our container and calculate our result
-                container_name, function_output, has_timeout = _run_container(image_tag)
+                container_name, function_output, function_response, has_timeout = _run_container(image_tag)
 
                 # After this has been done, we make sure to clean up the image, container and job folder
                 build_output = _destroy_container(container_name, build_output)
@@ -617,6 +643,7 @@ def start(config, uuid):
                     job_uuid, {
                         "build_output": build_output,
                         "function_output": function_output,
+                        "function_response": function_response,
                         "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT']
                     }, config.token)
 
@@ -630,13 +657,25 @@ def start(config, uuid):
 
     except ObjectNotFoundException as e:
         click.echo('Not found Instance with this UUID')
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         click.echo('Instance stopped!')
         _make_put_request('stop', instance_uuid, config.token)
         click.echo(e)
 
         # If the error was provoked by a job, we update our remote with the output
         if job_uuid:
+            # We update the job in the remote, so it can be pick up again later
+            _make_patch_request(
+                job_uuid, {
+                    "status": JOB_STATUSES['CREATED'],
+                    "function_output": b'',
+                    "function_response": b'',
+                    "build_output": b'',
+                    "cost": 0.0,
+                    "started_at": None,
+                    "finished_at": None
+                }, config.token)
+
             # Just in case, we try to delete the container and the image, in case they were pending
             build_output = _destroy_container(job_uuid, build_output)
             build_output = _destroy_image(job_uuid, build_output)
@@ -646,5 +685,6 @@ def start(config, uuid):
                     job_uuid, {
                         "build_output": build_output,
                         "function_output": function_output,
+                        "function_response": function_response,
                         "status": JOB_STATUSES['FAILED']
                     }, config.token)
