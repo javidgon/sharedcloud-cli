@@ -9,7 +9,7 @@ from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
-BASE_URL = os.environ.get('BASE_URL', 'http://142.93.102.53:8000')
+BASE_URL = os.environ.get('BASE_URL', 'http://0.0.0.0:8000')
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CLIENT_CONFIG_FILE = '{}/client_config'.format(DATA_FOLDER)
 INSTANCE_CONFIG_FILE = '{}/instance_config'.format(DATA_FOLDER)
@@ -373,8 +373,8 @@ def job(config):
 def list(config):
     _list_resource('{}/jobs/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'CMD_OUTPUT', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME'],
-                   ['uuid', 'incremental_id', 'status', 'cmd_output', 'created_at', 'run', 'function_name'],
+                   ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['uuid', 'incremental_id', 'status', 'function_output', 'created_at', 'run', 'function_name'],
                    mappers={
                        'status': _map_job_status_to_description,
                        'created_at': _map_datetime_obj_to_human_representation
@@ -414,8 +414,8 @@ def create(config, name, price_per_hour, max_num_jobs):
 def list(config):
     _list_resource('{}/instances/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_ACTIVE_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'price_per_hour', 'num_active_jobs', 'max_num_jobs', 'last_connection'],
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION'],
+                   ['uuid', 'name', 'status', 'price_per_hour', 'num_running_jobs', 'max_num_jobs', 'last_connection'],
                    mappers={
                        'status': _map_instance_status_to_description,
                        'last_connection': _map_datetime_obj_to_human_representation
@@ -461,6 +461,8 @@ def delete(config, uuid):
 @click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
 @pass_config
 def start(config, uuid):
+    # TODO: Make this asynchronous. Meaning that while it's processing a Job it can
+    # also take new ones without the need to open a new terminal
     class ObjectNotFoundException(Exception):
         pass
 
@@ -498,7 +500,7 @@ def start(config, uuid):
         return image_tag, build_output
 
     def _run_container(image_tag):
-        cmd_output = b''
+        function_output = b''
         container_name = image_tag
         has_timeout = False
 
@@ -506,7 +508,7 @@ def start(config, uuid):
             docker_run = check_output(
                 ['docker', 'run', '--memory=512m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)])
             for line in docker_run.splitlines():
-                cmd_output += line + b'\n'
+                function_output += line + b'\n'
         except CalledProcessError as grepexc:
             # When it exists due to a timeout we don't exit the cli as it's kind of an expected error
             if grepexc.returncode == 124:
@@ -514,7 +516,7 @@ def start(config, uuid):
             else:
                 raise
 
-        return container_name, cmd_output, has_timeout
+        return container_name, function_output, has_timeout
 
     def _destroy_container(container_name, build_output):
         try:
@@ -558,9 +560,10 @@ def start(config, uuid):
 
     job_uuid = None
     build_output = b''
-    cmd_output = b''
+    function_output = b''
 
     try:
+        print('Ready to take Jobs...')
         # First, we let our remote know that we are starting the instance
         _make_put_request('start', instance_uuid, config.token)
 
@@ -602,7 +605,7 @@ def start(config, uuid):
                 # use to run our container
                 image_tag, build_output = _generate_image(job_uuid, job_folder)
                 # After the image has been generated, we run our container and calculate our result
-                container_name, cmd_output, has_timeout = _run_container(image_tag)
+                container_name, function_output, has_timeout = _run_container(image_tag)
 
                 # After this has been done, we make sure to clean up the image, container and job folder
                 build_output = _destroy_container(container_name, build_output)
@@ -613,7 +616,7 @@ def start(config, uuid):
                 _make_patch_request(
                     job_uuid, {
                         "build_output": build_output,
-                        "cmd_output": cmd_output,
+                        "function_output": function_output,
                         "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT']
                     }, config.token)
 
@@ -622,8 +625,8 @@ def start(config, uuid):
 
             # We reset the current job_uuid, as everything was processed successfully
             job_uuid = None
-            # We wait 60 seconds until the next check
-            time.sleep(60)
+            # We wait 5 seconds until the next check
+            time.sleep(5)
 
     except ObjectNotFoundException as e:
         click.echo('Not found Instance with this UUID')
@@ -638,10 +641,10 @@ def start(config, uuid):
             build_output = _destroy_container(job_uuid, build_output)
             build_output = _destroy_image(job_uuid, build_output)
 
-            if build_output and cmd_output:
+            if build_output and function_output:
                 _make_patch_request(
                     job_uuid, {
                         "build_output": build_output,
-                        "cmd_output": cmd_output,
+                        "function_output": function_output,
                         "status": JOB_STATUSES['FAILED']
                     }, config.token)
