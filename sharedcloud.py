@@ -1,3 +1,5 @@
+import subprocess
+
 import click
 import datetime
 import requests
@@ -144,7 +146,8 @@ def _map_cost_number_to_version_with_currency(cost, token):
     return '${}'.format(cost)
 
 def _map_duration_to_readable_version(duration, token):
-    return '{} seconds'.format(duration)
+    if duration:
+        return '{} seconds'.format(duration)
 
 # Validators
 
@@ -256,13 +259,13 @@ def function(config):
 
 @function.command(help='Creates a new Function')
 @click.option('--name', required=True)
-@click.option('--runtime', required=True, type=click.Choice(['python37']))
+@click.option('--runtime', required=True, type=click.Choice(['python27', 'python36', 'node8']))
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
 @click.option('--code', required=False, callback=_validate_code)
 @pass_config
 def create(config, name, runtime, file, code):
-    # sharedcloud function create --name mything --runtime python37 --code "def handler(args): return 2"
-    # sharedcloud function create --name mything --runtime python37 --file "file.py"
+    # sharedcloud function create --name mything --runtime python36 --code "def handler(args): return 2"
+    # sharedcloud function create --name mything --runtime python36 --file "file.py"
 
     if file:
         code = ''
@@ -271,9 +274,6 @@ def create(config, name, runtime, file, code):
             if not chunk:
                 break
             code += chunk
-
-    if 'def handler(args):' not in code:
-        raise click.BadParameter('Please make sure to use the following signature for the function: "def handler(args):"')
 
     _create_resource('{}/functions/'.format(BASE_URL), config.token, {
         'name': name,
@@ -285,13 +285,13 @@ def create(config, name, runtime, file, code):
 @function.command(help='Update a Function')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--name', required=False)
-@click.option('--runtime', required=False, type=click.Choice(['python37']))
+@click.option('--runtime', required=False, type=click.Choice(['python27', 'python36', 'node8']))
 @click.option('--file', required=False, type=click.File())
 @click.option('--code', required=False)
 @pass_config
 def update(config, uuid, name, runtime, file, code):
-    # sharedcloud function update --uuid <uuid> --name mything --runtime python37 --code "import sys; print(sys.argv)"
-    # sharedcloud function update  --uuid <uuid> --name mything --runtime python37 --file "file.py"
+    # sharedcloud function update --uuid <uuid> --name mything --runtime python36 --code "import sys; print(sys.argv)"
+    # sharedcloud function update  --uuid <uuid> --name mything --runtime python36 --file "file.py"
     if file:
         code = ''
         while True:
@@ -510,6 +510,7 @@ def start(config, uuid):
              '-f', '{}/{}/Dockerfile'.format(DATA_FOLDER, job_uuid), job_folder])
         for line in docker_build.splitlines():
             build_output += line + b'\n'
+
         return image_tag, build_output
 
     def _run_container(image_tag):
@@ -531,8 +532,10 @@ def start(config, uuid):
             return function_output, function_response
 
         try:
+            #TODO: We probably need to capture the real exception around this area
             docker_run = check_output(
-                ['docker', 'run', '--memory=512m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)])
+                ['docker', 'run', '--memory=1024m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)],
+            )
             function_output, function_response = _extract_output(docker_run)
         except CalledProcessError as grepexc:
             # When it exists due to a timeout we don't exit the cli as it's kind of an expected error
@@ -573,6 +576,17 @@ def start(config, uuid):
                 ['docker', 'ps'])
         except CalledProcessError as pgrepexc:
             exit('Is the Docker daemon running in your machine?')
+
+    def _report_failure(exception_message, job_uuid, function_response, build_output):
+        build_output = _destroy_container(job_uuid, build_output)
+        build_output = _destroy_image(job_uuid, build_output)
+        _make_patch_request(
+            job_uuid, {
+                "build_output": build_output,
+                "function_output": exception_message,
+                "function_response": function_response,
+                "status": JOB_STATUSES['FAILED']
+            }, config.token)
 
     if not uuid:
         uuid = _read_instance_uuid()
@@ -625,27 +639,34 @@ def start(config, uuid):
 
                 # Here we create files from the received Dockerfile and Code
                 _create_file_from_data(job.get('dockerfile'), '{}/Dockerfile'.format(job_folder))
-                _create_file_from_data(job.get('wrapped_code'), '{}/file.py'.format(job_folder))
+                _create_file_from_data(job.get('wrapped_code'), '{}/file'.format(job_folder))
 
                 # After the files have been created, we can generate the image that we are going to
                 # use to run our container
-                image_tag, build_output = _generate_image(job_uuid, job_folder)
-                # After the image has been generated, we run our container and calculate our result
-                container_name, function_output, function_response, has_timeout = _run_container(image_tag)
-
-                # After this has been done, we make sure to clean up the image, container and job folder
-                build_output = _destroy_container(container_name, build_output)
-                build_output = _destroy_image(image_tag, build_output)
-                shutil.rmtree(job_folder)
-
-                # Finally, we let our remote know that job's stats
-                _make_patch_request(
-                    job_uuid, {
-                        "build_output": build_output,
-                        "function_output": function_output,
-                        "function_response": function_response,
-                        "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT']
-                    }, config.token)
+                container_name = None
+                image_tag = None
+                try:
+                    image_tag, build_output = _generate_image(job_uuid, job_folder)
+                    # After the image has been generated, we run our container and calculate our result
+                    container_name, function_output, function_response, has_timeout = _run_container(image_tag)
+                except Exception as e:
+                    _report_failure(e, job_uuid, function_response, build_output)
+                else:
+                    # Finally, we let our remote know that job's stats
+                    _make_patch_request(
+                        job_uuid, {
+                            "build_output": build_output,
+                            "function_output": function_output,
+                            "function_response": function_response,
+                            "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT']
+                        }, config.token)
+                finally:
+                    # After this has been done, we make sure to clean up the image, container and job folder
+                    if container_name:
+                        build_output = _destroy_container(container_name, build_output)
+                    if image_tag:
+                        build_output = _destroy_image(image_tag, build_output)
+                    shutil.rmtree(job_folder)
 
             if num_jobs > 0:
                 click.echo('All jobs were completed!')
@@ -660,31 +681,4 @@ def start(config, uuid):
     except (Exception, KeyboardInterrupt) as e:
         click.echo('Instance stopped!')
         _make_put_request('stop', instance_uuid, config.token)
-        click.echo(e)
-
-        # If the error was provoked by a job, we update our remote with the output
-        if job_uuid:
-            # We update the job in the remote, so it can be pick up again later
-            _make_patch_request(
-                job_uuid, {
-                    "status": JOB_STATUSES['CREATED'],
-                    "function_output": b'',
-                    "function_response": b'',
-                    "build_output": b'',
-                    "cost": 0.0,
-                    "started_at": None,
-                    "finished_at": None
-                }, config.token)
-
-            # Just in case, we try to delete the container and the image, in case they were pending
-            build_output = _destroy_container(job_uuid, build_output)
-            build_output = _destroy_image(job_uuid, build_output)
-
-            if build_output and function_output:
-                _make_patch_request(
-                    job_uuid, {
-                        "build_output": build_output,
-                        "function_output": function_output,
-                        "function_response": function_response,
-                        "status": JOB_STATUSES['FAILED']
-                    }, config.token)
+        exit(1)

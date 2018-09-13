@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../sharedcloud_backend/.idea/sharedcloud_backend.iml" filepath="$PROJECT_DIR$/../sharedcloud_backend/.idea/sharedcloud_backend.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../sharedcloud_cli/.idea/sharedcloud_cli.iml" filepath="$PROJECT_DIR$/../sharedcloud_cli/.idea/sharedcloud_cli.iml" />
+    </modules>
+  </component>
+</project>
