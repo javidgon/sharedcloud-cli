@@ -1,5 +1,3 @@
-import subprocess
-
 import click
 import datetime
 import requests
@@ -7,11 +5,12 @@ import os
 import time
 import shutil
 import timeago
+from click import pass_obj
 from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
-BASE_URL = os.environ.get('BASE_URL', 'http://0.0.0.0:8000')
+BASE_URL = os.environ.get('BASE_URL', 'http://0.0.0.0:8000/api/v1')
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CLIENT_CONFIG_FILE = '{}/client_config'.format(DATA_FOLDER)
 INSTANCE_CONFIG_FILE = '{}/instance_config'.format(DATA_FOLDER)
@@ -206,9 +205,7 @@ class Config(object):
     def __init__(self):
         self.token = None
 
-
 pass_config = click.make_pass_decorator(Config, ensure=True)
-
 
 @click.group()
 @pass_config
@@ -252,7 +249,7 @@ def logout():
 
 
 @cli1.group(help='Create/Delete/List Functions')
-@pass_config
+@pass_obj
 def function(config):
     _exit_if_user_is_logged_out(config.token)
 
@@ -262,11 +259,10 @@ def function(config):
 @click.option('--runtime', required=True, type=click.Choice(['python27', 'python36', 'node8']))
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
 @click.option('--code', required=False, callback=_validate_code)
-@pass_config
+@pass_obj
 def create(config, name, runtime, file, code):
-    # sharedcloud function create --name mything --runtime python36 --code "def handler(args): return 2"
+    # sharedcloud function create --name mything --runtime python36 --code "def handler(event): return 2"
     # sharedcloud function create --name mything --runtime python36 --file "file.py"
-
     if file:
         code = ''
         while True:
@@ -288,7 +284,7 @@ def create(config, name, runtime, file, code):
 @click.option('--runtime', required=False, type=click.Choice(['python27', 'python36', 'node8']))
 @click.option('--file', required=False, type=click.File())
 @click.option('--code', required=False)
-@pass_config
+@pass_obj
 def update(config, uuid, name, runtime, file, code):
     # sharedcloud function update --uuid <uuid> --name mything --runtime python36 --code "import sys; print(sys.argv)"
     # sharedcloud function update  --uuid <uuid> --name mything --runtime python36 --file "file.py"
@@ -309,7 +305,7 @@ def update(config, uuid, name, runtime, file, code):
 
 
 @function.command(help='List Functions')
-@pass_config
+@pass_obj
 def list(config):
     # sharedcloud function list"
     _list_resource('{}/functions/'.format(BASE_URL),
@@ -324,7 +320,7 @@ def list(config):
 
 @function.command(help='Deletes a Function')
 @click.option('--uuid', required=True, type=click.UUID)
-@pass_config
+@pass_obj
 def delete(config, uuid):
     # sharedcloud function delete --uuid <uuid>
     _delete_resource('{}/functions/{}/'.format(BASE_URL, uuid), config.token, {
@@ -333,7 +329,7 @@ def delete(config, uuid):
 
 
 @cli1.group(help='Create/List Runs')
-@pass_config
+@pass_obj
 def run(config):
     _exit_if_user_is_logged_out(config.token)
 
@@ -341,7 +337,7 @@ def run(config):
 @run.command(help='Creates a new Run')
 @click.option('--function_uuid', required=True, type=click.UUID)
 @click.option('--parameters', required=True, callback=_validate_parameters)
-@pass_config
+@pass_obj
 def create(config, function_uuid, parameters):
     # sharedcloud run create --function_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
     _create_resource('{}/runs/'.format(BASE_URL), config.token, {
@@ -352,7 +348,7 @@ def create(config, function_uuid, parameters):
 
 @run.command(help='Deletes a Run')
 @click.option('--uuid', required=True, type=click.UUID)
-@pass_config
+@pass_obj
 def delete(config, uuid):
     # sharedcloud run delete --uuid <uuid>
     _delete_resource('{}/runs/{}/'.format(BASE_URL, uuid), config.token, {
@@ -361,7 +357,7 @@ def delete(config, uuid):
 
 
 @run.command(help='List Runs')
-@pass_config
+@pass_obj
 def list(config):
     # sharedcloud function list"
     _list_resource('{}/runs/'.format(BASE_URL),
@@ -374,13 +370,13 @@ def list(config):
 
 
 @cli1.group(help='List Jobs')
-@pass_config
+@pass_obj
 def job(config):
     _exit_if_user_is_logged_out(config.token)
 
 
 @job.command(help='List Jobs')
-@pass_config
+@pass_obj
 def list(config):
     _list_resource('{}/jobs/'.format(BASE_URL),
                    config.token,
@@ -395,7 +391,7 @@ def list(config):
 
 
 @cli1.group(help='Create/Start/List Instances')
-@pass_config
+@pass_obj
 def instance(config):
     _exit_if_user_is_logged_out(config.token)
 
@@ -404,7 +400,7 @@ def instance(config):
 @click.option('--name', required=True)
 @click.option('--price_per_hour', required=True, type=click.FLOAT)
 @click.option('--max_num_jobs', required=True, type=click.INT)
-@pass_config
+@pass_obj
 def create(config, name, price_per_hour, max_num_jobs):
     # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_jobs 3
     if os.path.exists(INSTANCE_CONFIG_FILE):
@@ -423,7 +419,7 @@ def create(config, name, price_per_hour, max_num_jobs):
 
 
 @instance.command(help='List Instances')
-@pass_config
+@pass_obj
 def list(config):
     _list_resource('{}/instances/'.format(BASE_URL),
                    config.token,
@@ -440,7 +436,7 @@ def list(config):
 @click.option('--name', required=False)
 @click.option('--price_per_hour', required=False, type=click.FLOAT)
 @click.option('--max_num_jobs', required=False, type=click.INT)
-@pass_config
+@pass_obj
 def update(config, uuid, name, price_per_hour, max_num_jobs):
     # sharedcloud instance update --name blabla --price_per_hour 2.0 --max_num_jobs 3
 
@@ -454,7 +450,7 @@ def update(config, uuid, name, price_per_hour, max_num_jobs):
 
 @instance.command(help='Deletes an Instance')
 @click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
-@pass_config
+@pass_obj
 def delete(config, uuid):
     # sharedcloud instance delete [--uuid <uuid>]
 
@@ -472,7 +468,7 @@ def delete(config, uuid):
 
 @instance.command(help='Starts an Instance')
 @click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
-@pass_config
+@pass_obj
 def start(config, uuid):
     # TODO: Make this asynchronous. Meaning that while it's processing a Job it can
     # also take new ones without the need to open a new terminal
