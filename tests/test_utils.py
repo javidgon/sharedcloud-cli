@@ -21,28 +21,65 @@ class TestUtils:
     @classmethod
     def login(
             cls,
-            username=os.environ.get('SHAREDCLOUD_USERNAME', 'superuser'),
-            password=os.environ.get('SHAREDCLOUD_PASSWORD', 'password')):
-        r = cls.runner.invoke(cli1, ['login', username, password])
-        assert r.exit_code == 0
-        return r
+            username=None,
+            password=None
+    ):
+        args = ['login']
+
+        if username:
+            args.append('--username')
+            args.append(username)
+        if password:
+            args.append('--password')
+            args.append(password)
+
+        return cls.runner.invoke(cli1, args)
+
 
     @classmethod
     def logout(cls):
-        r = cls.runner.invoke(cli1, ['logout'])
-        assert r.exit_code == 0
-        return r
+        return cls.runner.invoke(cli1, ['logout'])
 
     @classmethod
-    def list_functions(cls):
+    def check_list_functions_output(
+            cls,
+            expected_uuid=None,
+            expected_name=None,
+            expected_runtime=None,
+            expected_num_runs=None,
+            expected_num_functions=None
+    ):
         config = Config(token=_read_token())
-        keywords = ['UUID', 'NAME', 'RUNTIME', 'CODE', 'CREATED']
+        columns = ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN']
         r = cls.runner.invoke(function, [
             'list',
         ], obj=config)
         assert r.exit_code == 0
-        for keyword in keywords:
-            assert keyword in r.output
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+
+        num_rows = len(rows)
+
+        if expected_num_functions:
+            assert num_rows == expected_num_functions
+
+        # Due to the inverse order (last resources are displayed in the first positions of the list),
+        # we check the expectations in the opposite order
+        for idx, row in enumerate(rows):
+            inverse_idx = num_rows-(idx+1)
+            if expected_uuid:
+                assert expected_uuid[inverse_idx] in row
+
+            if expected_name:
+                assert expected_name[inverse_idx] in row
+
+            if expected_runtime:
+                assert expected_runtime[inverse_idx] in row
+
+            if expected_num_runs:
+                assert expected_num_runs[inverse_idx] in row
 
         return r
 
@@ -50,100 +87,100 @@ class TestUtils:
     @classmethod
     def create_function(
             cls,
-            name='example',
-            runtime='python36',
-            code='def handler(event): print(2)',
+            name=None,
+            runtime=None,
+            code=None,
             file=None):
         config = Config(token=_read_token())
-        if code:
-            args = [
-                'create',
-                '--name',
-                name,
-                '--runtime',
-                runtime,
-                '--code',
-                code
-            ]
-        else:
-            args = [
-                'create',
-                '--name',
-                name,
-                '--runtime',
-                runtime,
-                '--file',
-                file
-            ]
-        r = cls.runner.invoke(function, args, obj=config)
-        assert r.exit_code == 0
-        assert 'has been created' in r.output
+        args = ['create']
 
-        return r, cls.extract_uuid(r.output)
+        if name:
+            args.append('--name')
+            args.append(name)
+        if runtime:
+            args.append('--runtime')
+            args.append(runtime)
+        if code:
+            args.append('--code')
+            args.append(code)
+        if file:
+            args.append('--file')
+            args.append(file)
+        return cls.runner.invoke(function, args, obj=config)
 
     @classmethod
     def update_function(cls,
                         uuid=None,
-                        name='example',
-                        runtime='python36',
-                        code='def handler(event): print(2)',
+                        name=None,
+                        runtime=None,
+                        code=None,
                         file=None):
         config = Config(token=_read_token())
-        if code:
-            args = [
-                'update',
-                '--uuid',
-                uuid,
-                '--name',
-                name,
-                '--runtime',
-                runtime,
-                '--code',
-                code
-            ]
-        else:
-            args = [
-                'update',
-                '--uuid',
-                uuid,
-                '--name',
-                name,
-                '--runtime',
-                runtime,
-                '--file',
-                file
-            ]
-        r = cls.runner.invoke(function, args, obj=config)
-        assert r.exit_code == 0
-        assert 'was updated' in r.output
+        args = ['update']
 
-        return r, cls.extract_uuid(r.output)
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        if name:
+            args.append('--name')
+            args.append(name)
+        if runtime:
+            args.append('--runtime')
+            args.append(runtime)
+        if code:
+            args.append('--code')
+            args.append(code)
+        if file:
+            args.append('--file')
+            args.append(file)
+        return cls.runner.invoke(function, args, obj=config)
 
     @classmethod
     def delete_function(cls, uuid=None):
         config = Config(token=_read_token())
-        r = cls.runner.invoke(function, [
-            'delete',
-            '--uuid',
-            uuid
-        ], obj=config)
-        assert r.exit_code == 0
-        assert 'was deleted' in r.output
+        args = ['delete']
 
-        return r, cls.extract_uuid(r.output)
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        return cls.runner.invoke(function, args, obj=config)
 
 
     # Runs
     @classmethod
-    def list_runs(cls):
+    def check_list_runs_output(cls,
+                  expected_uuid=None,
+                  expected_parameters=None,
+                  expected_function_name=None,
+                  expected_num_runs=None
+    ):
         config = Config(token=_read_token())
-        keywords = ['UUID', 'PARAMETERS', 'CREATED', 'FUNCTION_NAME']
+        columns = ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION_NAME']
         r = cls.runner.invoke(run, [
             'list',
         ], obj=config)
         assert r.exit_code == 0
-        for keyword in keywords:
-            assert keyword in r.output
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+
+        num_rows = len(rows)
+
+        if expected_num_runs:
+            assert num_rows == expected_num_runs
+
+        for idx, row in enumerate(rows):
+            inverse_order = num_rows-(idx+1)
+
+            if expected_uuid:
+                assert expected_uuid[inverse_order] in row
+
+            if expected_parameters:
+                assert expected_parameters[inverse_order] in row
+
+            if expected_function_name:
+                assert expected_function_name[inverse_order] in row
 
         return r
 
@@ -151,131 +188,185 @@ class TestUtils:
     def create_run(
             cls,
             function_uuid=None,
-            parameters='((1, 2), (3, 4))'):
+            parameters=None):
         config = Config(token=_read_token())
+        args =['create']
 
-        r = cls.runner.invoke(run, [
-            'create',
-            '--function_uuid',
-            function_uuid,
-            '--parameters',
-            parameters
-        ], obj=config)
-        assert r.exit_code == 0
-        assert 'has been created' in r.output
+        if function_uuid:
+            args.append('--function_uuid')
+            args.append(function_uuid)
+        if parameters:
+            args.append('--parameters')
+            args.append(parameters)
 
-        return r, cls.extract_uuid(r.output)
+        return cls.runner.invoke(run, args, obj=config)
 
     @classmethod
     def delete_run(cls, uuid=None):
         config = Config(token=_read_token())
-        r = cls.runner.invoke(run, [
-            'delete',
-            '--uuid',
-            uuid
-        ], obj=config)
-        assert r.exit_code == 0
-        assert 'was deleted' in r.output
+        args = ['delete']
 
-        return r, cls.extract_uuid(r.output)
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
 
+        return cls.runner.invoke(run, args, obj=config)
 
     # Jobs
     @classmethod
-    def list_jobs(cls):
+    def check_list_jobs_output(cls,
+                  expected_status=None,
+                  expected_num_jobs=None,
+                  expected_output=None,
+                  expected_response=None
+    ):
         config = Config(token=_read_token())
-        keywords = ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME']
+        columns = ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME']
         r = cls.runner.invoke(job, [
             'list',
         ], obj=config)
         assert r.exit_code == 0
-        for keyword in keywords:
-            assert keyword in r.output
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+
+        num_rows = len(rows)
+
+        if expected_num_jobs:
+            assert num_rows == expected_num_jobs
+
+        for idx, row in enumerate(rows):
+            inverse_order = num_rows-(idx+1)
+
+            if expected_status:
+                assert expected_status[inverse_order] in row
+
+            if expected_output:
+                assert expected_output[inverse_order] in row
+
+            if expected_response:
+                assert expected_response[inverse_order] in row
 
         return r
 
 
     # Instances
     @classmethod
-    def list_instances(cls):
+    def check_list_instances_output(cls,
+                       expected_uuid=None,
+                       expected_name=None,
+                       expected_status=None,
+                       expected_price_per_hour=None,
+                       expected_num_running_jobs=None,
+                       expected_max_num_jobs=None,
+                       expected_num_instances=None):
         config = Config(token=_read_token())
-        keywords = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION']
+        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION']
         r = cls.runner.invoke(instance, [
             'list',
         ], obj=config)
         assert r.exit_code == 0
-        for keyword in keywords:
-            assert keyword in r.output
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+
+        num_rows = len(rows)
+
+        if expected_num_instances:
+            assert num_rows == expected_num_instances
+
+        for idx, row in enumerate(rows):
+            inverse_order = num_rows-(idx+1)
+
+            if expected_uuid:
+                assert expected_uuid[inverse_order] in row
+
+            if expected_name:
+                assert expected_name[inverse_order] in row
+
+            if expected_status:
+                assert expected_status[inverse_order] in row
+
+            if expected_price_per_hour:
+                assert expected_price_per_hour[inverse_order] in row
+
+            if expected_num_running_jobs:
+                assert expected_num_running_jobs[inverse_order] in row
+
+            if expected_max_num_jobs:
+                assert expected_max_num_jobs[inverse_order] in row
 
         return r
 
     @classmethod
     def create_instance(
             cls,
-            name='instance_name',
-            price_per_hour=1.0,
-            max_num_jobs=5):
+            name=None,
+            price_per_hour=None,
+            max_num_jobs=None):
         config = Config(token=_read_token())
+        args =['create']
 
-        r = cls.runner.invoke(instance, [
-            'create',
-            '--name',
-            name,
-            '--price_per_hour',
-            price_per_hour,
-            '--max_num_jobs',
-            max_num_jobs
-        ], obj=config)
-        assert r.exit_code == 0
-        assert 'has been created' in r.output
-
-        return r, cls.extract_uuid(r.output)
+        if name:
+            args.append('--name')
+            args.append(name)
+        if price_per_hour:
+            args.append('--price_per_hour')
+            args.append(price_per_hour)
+        if max_num_jobs:
+            args.append('--max_num_jobs')
+            args.append(max_num_jobs)
+        return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
     def update_instance(
             cls,
-            name='instance_name',
-            price_per_hour=1.0,
-            max_num_jobs=5):
+            uuid=None,
+            name=None,
+            price_per_hour=None,
+            max_num_jobs=None):
         config = Config(token=_read_token())
+        args = ['update']
 
-        r = cls.runner.invoke(instance, [
-            'update',
-            '--name',
-            name,
-            '--price_per_hour',
-            price_per_hour,
-            '--max_num_jobs',
-            max_num_jobs
-        ], obj=config)
-        assert r.exit_code == 0
-        assert 'was updated' in r.output
-
-        return r, cls.extract_uuid(r.output)
-
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        if name:
+            args.append('--name')
+            args.append(name)
+        if price_per_hour:
+            args.append('--price_per_hour')
+            args.append(price_per_hour)
+        if max_num_jobs:
+            args.append('--max_num_jobs')
+            args.append(max_num_jobs)
+        return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
     def delete_instance(cls, uuid=None):
         config = Config(token=_read_token())
-        r = cls.runner.invoke(instance, [
-            'delete',
-            '--uuid',
-            uuid
-        ], obj=config)
-        assert r.exit_code == 0
-        #assert 'was deleted' in r.output
+        args = ['delete']
 
-        return r, cls.extract_uuid(r.output)
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
     def start_instance(cls, uuid=None):
         config = Config(token=_read_token())
-        r = cls.runner.invoke(instance, [
-            'start',
-            '--uuid',
-            uuid
-        ], obj=config)
-        assert r.exit_code == 0
-        assert 'Ready to take Jobs' in r.output
+        args =['start']
 
-        return r, cls.extract_uuid(r.output)
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        return cls.runner.invoke(instance, args, obj=config)
+
+    @classmethod
+    def read_file(cls, filepath):
+        output = None
+        with open(filepath, 'r') as f:
+            output = f.read()
+        return output

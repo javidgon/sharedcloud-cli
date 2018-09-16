@@ -12,8 +12,8 @@ from subprocess import check_output, CalledProcessError
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
 BASE_URL = os.environ.get('BASE_URL', 'http://0.0.0.0:8000/api/v1')
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
-CLIENT_CONFIG_FILE = '{}/client_config'.format(DATA_FOLDER)
-INSTANCE_CONFIG_FILE = '{}/instance_config'.format(DATA_FOLDER)
+CLIENT_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('CLIENT_CONFIG_FILENAME', 'client_config'))
+INSTANCE_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('INSTANCE_CONFIG_FILENAME', 'instance_config'))
 
 JOB_STATUSES = {
     'CREATED': 1,
@@ -66,6 +66,7 @@ def _create_resource(url, token, data):
         click.echo('Resource with UUID {} has been created.'.format(resource.get('uuid')))
     else:
         click.echo(r.content)
+        exit(2)
     return r
 
 
@@ -102,8 +103,10 @@ def _update_resource(url, token, data):
         click.echo('Resource with UUID {} was updated.'.format(data.get('uuid')))
     elif r.status_code == 404:
         click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+        exit(2)
     else:
         click.echo(r.content)
+        exit(2)
     return r
 
 
@@ -116,6 +119,7 @@ def _delete_resource(url, token, data):
         click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
     else:
         click.echo(r.content)
+        exit(2)
     return r
 
 # Mappers
@@ -218,8 +222,8 @@ def cli1(config):
 
 
 @cli1.command(help='Login into Sharedcloud')
-@click.argument('username', required=True)
-@click.argument('password', required=True)
+@click.option('--username', required=True)
+@click.option('--password', required=True)
 def login(username, password):
     # sharedcloud login username password
     r = requests.post('{}/api-token-auth/'.format(BASE_URL), data={
@@ -310,8 +314,8 @@ def list(config):
     # sharedcloud function list"
     _list_resource('{}/functions/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'NAME', 'RUNTIME', 'CODE', 'CREATED'],
-                   ['uuid', 'name', 'runtime', 'code', 'created_at'],
+                   ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN'],
+                   ['uuid', 'name', 'runtime', 'num_runs', 'created_at'],
                    mappers={
                        'code': _map_code_to_reduced_version,
                        'created_at': _map_datetime_obj_to_human_representation
@@ -362,7 +366,7 @@ def list(config):
     # sharedcloud function list"
     _list_resource('{}/runs/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'PARAMETERS', 'CREATED', 'FUNCTION_NAME'],
+                   ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION_NAME'],
                    ['uuid', 'parameters', 'created_at', 'function_name'],
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
@@ -380,7 +384,7 @@ def job(config):
 def list(config):
     _list_resource('{}/jobs/'.format(BASE_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'CREATED', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
                    ['uuid', 'incremental_id', 'status', 'function_output', 'function_response', 'cost', 'duration', 'created_at', 'run', 'function_name'],
                    mappers={
                        'cost': _map_cost_number_to_version_with_currency,
@@ -449,13 +453,10 @@ def update(config, uuid, name, price_per_hour, max_num_jobs):
 
 
 @instance.command(help='Deletes an Instance')
-@click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
+@click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
     # sharedcloud instance delete [--uuid <uuid>]
-
-    if not uuid:
-        uuid = _read_instance_uuid()
 
     r = _delete_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
         'uuid': uuid
@@ -467,7 +468,8 @@ def delete(config, uuid):
 
 
 @instance.command(help='Starts an Instance')
-@click.option('--uuid', required=False, callback=_validate_uuid, type=click.UUID)
+@click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
+
 @pass_obj
 def start(config, uuid):
     # TODO: Make this asynchronous. Meaning that while it's processing a Job it can
@@ -584,8 +586,7 @@ def start(config, uuid):
                 "status": JOB_STATUSES['FAILED']
             }, config.token)
 
-    if not uuid:
-        uuid = _read_instance_uuid()
+    started_at = datetime.datetime.now()
 
     instance_uuid = uuid
 
@@ -597,11 +598,10 @@ def start(config, uuid):
     build_output = b''
     function_output = b''
     function_response = b''
-
     try:
-        print('Ready to take Jobs...')
         # First, we let our remote know that we are starting the instance
         _make_put_request('start', instance_uuid, config.token)
+        print('Ready to take Jobs...')
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
         while True:
@@ -669,12 +669,14 @@ def start(config, uuid):
 
             # We reset the current job_uuid, as everything was processed successfully
             job_uuid = None
+
             # We wait 5 seconds until the next check
             time.sleep(5)
 
     except ObjectNotFoundException as e:
-        click.echo('Not found Instance with this UUID')
+        click.echo('Not found Instance with UUID {}'.format(instance_uuid))
+
     except (Exception, KeyboardInterrupt) as e:
-        click.echo('Instance stopped!')
+        click.echo('Instance {} has just stopped!'.format(instance_uuid))
         _make_put_request('stop', instance_uuid, config.token)
         exit(1)

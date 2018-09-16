@@ -30,6 +30,7 @@ jobs:
 
     steps:
       - checkout
+      - setup_remote_docker
       - run: sudo apt-get install -y build-essential
 
       # Download and cache dependencies
