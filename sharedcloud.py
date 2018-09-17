@@ -10,7 +10,7 @@ from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
-BASE_URL = os.environ.get('BASE_URL', 'http://0.0.0.0:8000/api/v1')
+BASE_URL = os.environ.get('BASE_URL', 'https://sharedcloud.io/api/v1')
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CLIENT_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('CLIENT_CONFIG_FILENAME', 'client_config'))
 INSTANCE_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('INSTANCE_CONFIG_FILENAME', 'instance_config'))
