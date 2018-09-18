@@ -210,6 +210,7 @@ def test_provider_performs_complete_workflow_with_a_job():
     )
     assert r.exit_code == 0
     assert 'has been created' in r.output
+    run_uuid = TestUtils.extract_uuid(r.output)
 
     # 4) Create an instance
     r = TestUtils.create_instance(
@@ -274,6 +275,17 @@ def test_provider_performs_complete_workflow_with_a_job():
         expected_status=['IN_PROGRESS'],
         expected_num_jobs = 1
     )
+
+    # Now it should fail if we try to delete either the function or the Run,
+    # because we have one Job in progress
+    r = TestUtils.delete_function(uuid=function_uuid)
+    assert r.exit_code == 0
+    assert 'This Resource associated in progress jobs' in r.output
+
+    r = TestUtils.delete_run(uuid=run_uuid)
+    assert r.exit_code == 0
+    assert 'This Resource associated in progress jobs' in r.output
+
     # We wait to give some time to the instance to process the jobs
     time.sleep(120)
 
