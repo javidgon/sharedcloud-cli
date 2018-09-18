@@ -8,6 +8,24 @@ username = os.environ.get('SHAREDCLOUD_USERNAME')
 password = os.environ.get('SHAREDCLOUD_PASSWORD')
 
 
+def test_customer_wants_to_see_his_account_information():
+    # 1) Login into the system
+    r = TestUtils.login(username, password)
+    assert r.exit_code == 0
+    assert 'Successfully logged in :)' in r.output
+
+    # 2) Query his account details
+    TestUtils.check_account_output(
+        expected_email='superuser@example.com',
+        expected_balance='$0.0'
+    )
+
+    # 3) Logout of the system
+    r = TestUtils.logout()
+    assert r.exit_code == 0
+    assert 'Successfully logged out' in r.output
+
+
 def test_customer_performs_a_complete_workflow_with_code():
     code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
     runtime = 'python36'
@@ -279,11 +297,11 @@ def test_provider_performs_complete_workflow_with_a_job():
     # Now it should fail if we try to delete either the function or the Run,
     # because we have one Job in progress
     r = TestUtils.delete_function(uuid=function_uuid)
-    assert r.exit_code == 0
+    assert r.exit_code == 2
     assert 'This Resource associated in progress jobs' in r.output
 
     r = TestUtils.delete_run(uuid=run_uuid)
-    assert r.exit_code == 0
+    assert r.exit_code == 2
     assert 'This Resource associated in progress jobs' in r.output
 
     # We wait to give some time to the instance to process the jobs

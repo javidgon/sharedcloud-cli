@@ -3,7 +3,7 @@ import re
 
 from click.testing import CliRunner
 
-from sharedcloud import cli1, _read_token, function, run, instance, job
+from sharedcloud import cli1, _read_token, function, run, instance, job, account
 
 
 class Config():
@@ -17,6 +17,35 @@ class TestUtils:
     @staticmethod
     def extract_uuid(output):
         return re.findall(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", output)[0]
+
+    @classmethod
+    def check_account_output(
+            cls,
+            expected_email=None,
+            expected_balance=None
+    ):
+        config = Config(token=_read_token())
+        columns = ['EMAIL', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN']
+        r = cls.runner.invoke(account, [
+            'list',
+        ], obj=config)
+        assert r.exit_code == 0
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]
+
+        num_rows = len(rows)
+
+        for idx, row in enumerate(rows):
+            inverse_idx = num_rows - (idx + 1)
+            if expected_email:
+                assert expected_email[inverse_idx] in row
+
+            if expected_balance:
+                assert expected_balance[inverse_idx] in row
+
+        return r
 
     @classmethod
     def login(

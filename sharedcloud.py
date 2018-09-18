@@ -80,7 +80,8 @@ def _list_resource(url, token, headers, keys, mappers=None):
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
-        resources = r.json()
+        # This is required to accommodate the cases where we get from the remote a dict, not a list
+        resources = r.json() if type(r.json()) is not dict else [r.json()]
 
         click.echo(tabulate(
             [[_get_data(resource, key, token) for key in keys] for resource in resources],
@@ -219,6 +220,26 @@ def cli1(config):
         os.makedirs(DATA_FOLDER)
 
     config.token = _read_token()
+
+
+@cli1.group(help='Account Information')
+@pass_obj
+def account(config):
+    _exit_if_user_is_logged_out(config.token)
+
+@account.command(help='List Account Information')
+@pass_obj
+def list(config):
+    # sharedcloud account list"
+    _list_resource('{}/account/'.format(BASE_URL),
+                   config.token,
+                   ['EMAIL', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN'],
+                   ['email', 'balance', 'date_joined', 'last_login'],
+                   mappers={
+                       'balance': _map_cost_number_to_version_with_currency,
+                       'date_joined': _map_datetime_obj_to_human_representation,
+                       'last_login': _map_datetime_obj_to_human_representation
+                   })
 
 
 @cli1.command(help='Login into Sharedcloud')
