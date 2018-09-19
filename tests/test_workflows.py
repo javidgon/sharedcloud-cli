@@ -102,6 +102,63 @@ def test_user_creates_updates_and_deletes_an_account():
     assert '"Unable to log in with provided credentials' in r.output
 
 
+def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
+    email = 'random555@example.com'
+    username = 'random555'
+    password = 'blabla12345'
+    # 1) Create an account
+    r = TestUtils.create_account(
+        email=email,
+        username=username,
+        password=password
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    account_uuid = TestUtils.extract_uuid(r.output)
+
+    # 2) Login into the system
+    r = TestUtils.login(username, password)
+    assert r.exit_code == 0
+    assert 'Successfully logged in :)' in r.output
+
+    # 3) Query his account details
+    TestUtils.check_account_output(
+        expected_email=email,
+        expected_username=username,
+        expected_balance='$0.0'
+    )
+
+    code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
+    runtime = 'python36'
+    parameters = '((1,), (2,))'
+
+    # 4) Create a function to execute (by providing the code inline)
+    r = TestUtils.create_function(
+        name='example1',
+        code=code,
+        runtime=runtime
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    function_uuid = TestUtils.extract_uuid(r.output)
+
+    # 5) Create a run where we specify some parameters
+    r = TestUtils.create_run(
+        function_uuid=function_uuid,
+        parameters=parameters
+    )
+    assert r.exit_code == 1
+    assert 'you need a balance higher than 0 to create new runs' in r.output
+
+    # 6) Delete account
+    r = TestUtils.delete_account(
+        uuid=account_uuid
+    )
+    assert r.exit_code == 0
+    assert 'was deleted' in r.output
+    assert 'Successfully logged out' in r.output
+
+
 def test_customer_performs_a_complete_workflow_with_code():
     code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
     runtime = 'python36'
@@ -372,16 +429,17 @@ def test_provider_performs_complete_workflow_with_a_job():
 
     # Now it should fail if we try to delete either the function or the Run,
     # because we have one Job in progress
+
     r = TestUtils.delete_function(uuid=function_uuid)
     assert r.exit_code == 1
-    assert 'resource associated with "in progress" jobs' in r.output
+    assert 'Please wait until they are finished' in r.output
 
     r = TestUtils.delete_run(uuid=run_uuid)
     assert r.exit_code == 1
-    assert 'resource associated with "in progress" jobs' in r.output
+    assert 'Please wait until they are finished' in r.output
 
     # We wait to give some time to the instance to process the jobs
-    time.sleep(120)
+    time.sleep(250)
 
     # Terminate foo
     p.terminate()
@@ -395,6 +453,12 @@ def test_provider_performs_complete_workflow_with_a_job():
         expected_output=('Hello World 1'),
         expected_response=('43'),
         expected_num_jobs = 1,
+    )
+
+    # 10) Check balance
+    TestUtils.check_account_output(
+        expected_email='superuser@example.com',
+        expected_balance='$-0.22'
     )
 
     # 10) Delete the function

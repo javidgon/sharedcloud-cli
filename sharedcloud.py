@@ -223,6 +223,10 @@ def create(config, email, username, password):
         'username': username,
         'password': password
     })
+    click.echo('')
+    click.echo('Welcome aboard! Why you just don\'t start by creating a function?')
+    click.echo('>>> sharedcloud function create --name helloWorld --runtime python36 --code "def handler(event): print(\'HelloWorld\')"')
+    click.echo('')
 
 
 @account.command(help='Updates an Account')
@@ -327,12 +331,20 @@ def create(config, name, runtime, file, code):
                 break
             code += chunk
 
-    _create_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL), config.token, {
+    r = _create_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
         'runtime': runtime,
         'code': code
     })
-
+    resource = r.json()
+    function_uuid = resource.get('uuid')
+    click.echo('')
+    click.echo('Congrats! Now you have the following options to run your function:')
+    click.echo('1) CLI: sharedcloud run create --function_uuid {} --parameters <parameters>'.format(function_uuid))
+    click.echo('2) REST endpoint: {}/api/v1/runs/ (POST)'.format(SHAREDCLOUD_CLI_URL))
+    click.echo('\t\t BODY: {"function": "' + function_uuid + '", "parameters": <parameters>}')
+    click.echo('\t\t HEADER: "Authorization: Token {}"'.format(config.token))
+    click.echo('')
 
 @function.command(help='Update a Function')
 @click.option('--uuid', required=True, type=click.UUID)
