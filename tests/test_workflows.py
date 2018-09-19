@@ -159,6 +159,55 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     assert 'Successfully logged out' in r.output
 
 
+def test_user_tries_to_change_his_password_but_his_password_is_too_weak():
+    email = 'random555@example.com'
+    username = 'random555'
+    password = 'blabla12345'
+    # 1) Create an account
+    r = TestUtils.create_account(
+        email=email,
+        username=username,
+        password=password
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    account_uuid = TestUtils.extract_uuid(r.output)
+
+    # 2) Login into the system
+    r = TestUtils.login(username, password)
+    assert r.exit_code == 0
+    assert 'Successfully logged in :)' in r.output
+
+    # 3) Query his account details
+    TestUtils.check_account_output(
+        expected_email=email,
+        expected_username=username,
+        expected_balance='$0.0'
+    )
+
+    # 4) Update his account
+    new_email = 'random999@example.com'
+    new_username = 'random999'
+    new_password = '12345'
+
+    r = TestUtils.update_account(
+        uuid=account_uuid,
+        email=new_email,
+        username=new_username,
+        password=new_password
+    )
+    assert r.exit_code == 1
+    assert 'This password is too short. It must contain at least 9 characters' in r.output
+
+    # 5) Delete account
+    r = TestUtils.delete_account(
+        uuid=account_uuid
+    )
+    assert r.exit_code == 0
+    assert 'was deleted' in r.output
+    assert 'Successfully logged out' in r.output
+
+
 def test_customer_performs_a_complete_workflow_with_code():
     code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
     runtime = 'python36'
@@ -439,7 +488,7 @@ def test_provider_performs_complete_workflow_with_a_job():
     assert 'Please wait until they are finished' in r.output
 
     # We wait to give some time to the instance to process the jobs
-    time.sleep(250)
+    time.sleep(150)
 
     # Terminate foo
     p.terminate()
