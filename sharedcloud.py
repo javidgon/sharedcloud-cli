@@ -71,7 +71,7 @@ def _create_resource(url, token, data):
         click.echo('Resource with UUID {} has been created.'.format(resource.get('uuid')))
     else:
         click.echo(r.content)
-        exit(2)
+        exit(1)
     return r
 
 
@@ -92,6 +92,8 @@ def _list_resource(url, token, headers, keys, mappers=None):
             headers=headers))
     else:
         click.echo(r.content)
+        exit(1)
+
     return r
 
 
@@ -108,10 +110,10 @@ def _update_resource(url, token, data):
         click.echo('Resource with UUID {} was updated.'.format(data.get('uuid')))
     elif r.status_code == 404:
         click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
-        exit(2)
+        exit(1)
     else:
         click.echo(r.content)
-        exit(2)
+        exit(1)
     return r
 
 
@@ -122,9 +124,10 @@ def _delete_resource(url, token, data):
         click.echo('Resource with UUID {} was deleted.'.format(data.get('uuid')))
     elif r.status_code == 404:
         click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+        exit(1)
     else:
         click.echo(r.content)
-        exit(2)
+        exit(1)
     return r
 
 # Mappers
@@ -158,30 +161,6 @@ def _map_duration_to_readable_version(duration, token):
         return '{} seconds'.format(duration)
 
 # Validators
-
-def _validate_parameters(ctx, param, parameters):
-    try:
-        parameters_value = eval(parameters)
-        if not isinstance(parameters_value, tuple):
-            raise SyntaxError()
-    except SyntaxError:
-        raise click.BadParameter(
-            '"parameters" needs to have the structure of a tuple of tuples. e.g., ((1, 2), (3, 4))')
-
-    try:
-        if len(parameters_value) == 0:
-            raise SyntaxError(
-                '"parameters" needs to contain at least one inner tuple. Don\'t forget the comma at the end: e.g., ((1, 2),)')
-        else:
-            for parameter in parameters_value:
-                if not isinstance(parameter, tuple):
-                    raise SyntaxError(
-                        '"parameters" need to contain inner tuples. Don\'t forget the comma at the end: e.g., ((1, 2),)')
-    except SyntaxError as e:
-        raise click.BadParameter(e.msg)
-
-    return parameters
-
 
 def _validate_code(ctx, param, code):
     code_value = code
@@ -413,7 +392,7 @@ def run(config):
 
 @run.command(help='Creates a new Run')
 @click.option('--function_uuid', required=True, type=click.UUID)
-@click.option('--parameters', required=True, callback=_validate_parameters)
+@click.option('--parameters', required=True)
 @pass_obj
 def create(config, function_uuid, parameters):
     # sharedcloud run create --function_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
@@ -482,7 +461,7 @@ def create(config, name, price_per_hour, max_num_jobs):
     # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_jobs 3
     if os.path.exists(INSTANCE_CONFIG_FILE):
         click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
-        return None
+        exit(1)
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
@@ -550,8 +529,8 @@ def start(config, uuid):
     class ObjectNotFoundException(Exception):
         pass
 
-    def _make_put_request(action, instance_uuid, token):
-        r = requests.put('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
+    def _perform_instance_action(action, instance_uuid, token):
+        r = requests.patch('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
                          data={}, headers={'Authorization': 'Token {}'.format(token)})
         if r.status_code == 404:
             raise ObjectNotFoundException()
@@ -559,7 +538,7 @@ def start(config, uuid):
             raise Exception(r.content)
         return r
 
-    def _make_patch_request(job_uuid, data, token):
+    def _send_job_results(job_uuid, data, token):
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
         if r.status_code == 404:
@@ -651,7 +630,7 @@ def start(config, uuid):
     def _report_failure(exception_message, job_uuid, function_response, build_output):
         build_output = _destroy_container(job_uuid, build_output)
         build_output = _destroy_image(job_uuid, build_output)
-        _make_patch_request(
+        _send_job_results(
             job_uuid, {
                 "build_output": build_output,
                 "function_output": exception_message,
@@ -673,12 +652,12 @@ def start(config, uuid):
     function_response = b''
     try:
         # First, we let our remote know that we are starting the instance
-        _make_put_request('start', instance_uuid, config.token)
+        _perform_instance_action('start', instance_uuid, config.token)
         print('Ready to take Jobs...')
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
         while True:
-            r = _make_put_request('ping', instance_uuid, config.token)
+            r = _perform_instance_action('ping', instance_uuid, config.token)
 
             # If they do have new jobs, we process them...
             jobs = r.json()
@@ -692,7 +671,7 @@ def start(config, uuid):
                 job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
 
                 # We update the job in the remote, so it doesn't get assigned to other instances
-                _make_patch_request(
+                _send_job_results(
                     job_uuid, {
                         "status": JOB_STATUSES['IN_PROGRESS']
                     }, config.token)
@@ -722,7 +701,7 @@ def start(config, uuid):
                     _report_failure(e, job_uuid, function_response, build_output)
                 else:
                     # Finally, we let our remote know that job's stats
-                    _make_patch_request(
+                    _send_job_results(
                         job_uuid, {
                             "build_output": build_output,
                             "function_output": function_output,
@@ -751,5 +730,5 @@ def start(config, uuid):
 
     except (Exception, KeyboardInterrupt) as e:
         click.echo('Instance {} has just stopped!'.format(instance_uuid))
-        _make_put_request('stop', instance_uuid, config.token)
+        _perform_instance_action('stop', instance_uuid, config.token)
         exit(1)

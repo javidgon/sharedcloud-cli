@@ -41,7 +41,7 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_uuid():
         runtime='python36',
         code='blabla'
     )
-    assert r.exit_code == 2
+    assert r.exit_code == 1
     assert 'Not found resource with UUID' in r.output
 
     r = TestUtils.logout()
@@ -57,7 +57,7 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_code():
         runtime='python36',
         code='blabla'
     )
-    assert r.exit_code == 2
+    assert r.exit_code == 1
     assert 'Not found resource' in r.output
 
     r = TestUtils.logout()

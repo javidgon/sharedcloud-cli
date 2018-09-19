@@ -34,8 +34,7 @@ def test_user_get_validation_error_when_deleting_a_function_with_invalid_uuid():
 
     r = TestUtils.delete_function(
         uuid='4c3d399e-ec67-47a1-82e4-b979e534f3d9')
-    # TODO: Maybe here we should also raise an exit_code 2
-    assert r.exit_code == 0
+    assert r.exit_code == 1
     assert 'Not found resource with UUID' in r.output
 
     r = TestUtils.logout()

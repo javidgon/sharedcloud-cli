@@ -72,8 +72,8 @@ def test_user_get_validation_error_when_creating_a_function_with_invalid_code():
         runtime='python36',
         code='blabla'
     )
-    assert r.exit_code == 2
-    assert 'The function should use the following signature:' in r.output
+    assert r.exit_code == 1
+    assert 'needs to have the following signature' in r.output
 
     r = TestUtils.logout()
     assert r.exit_code == 0

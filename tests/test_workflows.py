@@ -88,6 +88,7 @@ def test_user_creates_updates_and_deletes_an_account():
     )
     assert r.exit_code == 0
     assert 'was deleted' in r.output
+    assert 'Successfully logged out' in r.output
 
     # 8) If we try to logout now it should complain because
     # the account was logged out automatically
@@ -372,12 +373,12 @@ def test_provider_performs_complete_workflow_with_a_job():
     # Now it should fail if we try to delete either the function or the Run,
     # because we have one Job in progress
     r = TestUtils.delete_function(uuid=function_uuid)
-    assert r.exit_code == 2
-    assert 'This Resource associated in progress jobs' in r.output
+    assert r.exit_code == 1
+    assert 'resource associated with "in progress" jobs' in r.output
 
     r = TestUtils.delete_run(uuid=run_uuid)
-    assert r.exit_code == 2
-    assert 'This Resource associated in progress jobs' in r.output
+    assert r.exit_code == 1
+    assert 'resource associated with "in progress" jobs' in r.output
 
     # We wait to give some time to the instance to process the jobs
     time.sleep(120)
