@@ -10,7 +10,7 @@ from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
-BASE_URL = os.environ.get('BASE_URL', 'https://sharedcloud.io/api/v1')
+SHAREDCLOUD_CLI_URL = os.environ.get('SHAREDCLOUD_CLI_URL', 'https://sharedcloud.io')
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 CLIENT_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('CLIENT_CONFIG_FILENAME', 'client_config'))
 INSTANCE_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('INSTANCE_CONFIG_FILENAME', 'instance_config'))
@@ -46,11 +46,12 @@ def _read_instance_uuid():
 
 def _exit_if_user_is_logged_out(token):
     if not token:
-        exit('You seem to be logged out. Please log in first')
+        print('You seem to be logged out. Please log in first')
+        exit(1)
 
 
 def _get_server_datetime(token):
-    r = requests.get('{}/server-datetime/'.format(BASE_URL),
+    r = requests.get('{}/api/v1/server-datetime/'.format(SHAREDCLOUD_CLI_URL),
                      headers={'Authorization': 'Token {}'.format(token)})
     if r.status_code == 200:
         response = r.json()
@@ -59,8 +60,12 @@ def _get_server_datetime(token):
 # Generic methods
 
 def _create_resource(url, token, data):
-    r = requests.post(url, data=data,
-                      headers={'Authorization': 'Token {}'.format(token)})
+    if token:
+        r = requests.post(url, data=data,
+                          headers={'Authorization': 'Token {}'.format(token)})
+    else:
+        r = requests.post(url, data=data)
+
     if r.status_code == 201:
         resource = r.json()
         click.echo('Resource with UUID {} has been created.'.format(resource.get('uuid')))
@@ -81,8 +86,7 @@ def _list_resource(url, token, headers, keys, mappers=None):
 
     if r.status_code == 200:
         # This is required to accommodate the cases where we get from the remote a dict, not a list
-        resources = r.json() if type(r.json()) is not dict else [r.json()]
-
+        resources = r.json()
         click.echo(tabulate(
             [[_get_data(resource, key, token) for key in keys] for resource in resources],
             headers=headers))
@@ -222,19 +226,67 @@ def cli1(config):
     config.token = _read_token()
 
 
-@cli1.group(help='Account Information')
+@cli1.group(help='Create/Delete/ListAccount Information')
 @pass_obj
 def account(config):
+    pass
+
+@account.command(help='Creates a new Account')
+@click.option('--email', required=True)
+@click.option('--username', required=True)
+@click.option('--password', required=True)
+@pass_obj
+def create(config, email, username, password):
+    # sharedcloud account create --email blabla@example.com--username blabla --password password
+
+    _create_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL), None, {
+        'email': email,
+        'username': username,
+        'password': password
+    })
+
+
+@account.command(help='Updates an Account')
+@click.option('--uuid', required=True, type=click.UUID)
+@click.option('--email', required=True)
+@click.option('--username', required=False)
+@click.option('--password', required=False)
+@pass_obj
+def update(config, uuid, email, username, password):
+    # sharedcloud account update --email blabla@example.com--username blabla --password password
     _exit_if_user_is_logged_out(config.token)
+
+    _update_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
+        'uuid': uuid,
+        'email': email,
+        'username': username,
+        'password': password
+    })
+
+
+@account.command(help='Deletes an Account')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_obj
+def delete(config, uuid):
+    # sharedcloud account delete --uuid <uuid>
+    _exit_if_user_is_logged_out(config.token)
+
+    _delete_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
+        'uuid': uuid
+    })
+
+    logout()
 
 @account.command(help='List Account Information')
 @pass_obj
 def list(config):
     # sharedcloud account list"
-    _list_resource('{}/account/'.format(BASE_URL),
+    _exit_if_user_is_logged_out(config.token)
+
+    _list_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['EMAIL', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN'],
-                   ['email', 'balance', 'date_joined', 'last_login'],
+                   ['UUID', 'EMAIL', 'USERNAME', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN'],
+                   ['uuid', 'email', 'username', 'balance', 'date_joined', 'last_login'],
                    mappers={
                        'balance': _map_cost_number_to_version_with_currency,
                        'date_joined': _map_datetime_obj_to_human_representation,
@@ -247,7 +299,7 @@ def list(config):
 @click.option('--password', required=True)
 def login(username, password):
     # sharedcloud login username password
-    r = requests.post('{}/api-token-auth/'.format(BASE_URL), data={
+    r = requests.post('{}/api/v1/api-token-auth/'.format(SHAREDCLOUD_CLI_URL), data={
         'username': username,
         'password': password
     })
@@ -273,7 +325,7 @@ def logout():
         click.echo('You were already logged out.')
 
 
-@cli1.group(help='Create/Delete/List Functions')
+@cli1.group(help='Create/Delete/Update/List Functions')
 @pass_obj
 def function(config):
     _exit_if_user_is_logged_out(config.token)
@@ -296,7 +348,7 @@ def create(config, name, runtime, file, code):
                 break
             code += chunk
 
-    _create_resource('{}/functions/'.format(BASE_URL), config.token, {
+    _create_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
         'runtime': runtime,
         'code': code
@@ -321,7 +373,7 @@ def update(config, uuid, name, runtime, file, code):
                 break
             code += chunk
 
-    _update_resource('{}/functions/{}/'.format(BASE_URL, uuid), config.token, {
+    _update_resource('{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
         'runtime': runtime,
@@ -333,7 +385,7 @@ def update(config, uuid, name, runtime, file, code):
 @pass_obj
 def list(config):
     # sharedcloud function list"
-    _list_resource('{}/functions/'.format(BASE_URL),
+    _list_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN'],
                    ['uuid', 'name', 'runtime', 'num_runs', 'created_at'],
@@ -348,7 +400,7 @@ def list(config):
 @pass_obj
 def delete(config, uuid):
     # sharedcloud function delete --uuid <uuid>
-    _delete_resource('{}/functions/{}/'.format(BASE_URL, uuid), config.token, {
+    _delete_resource('{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid
     })
 
@@ -365,7 +417,7 @@ def run(config):
 @pass_obj
 def create(config, function_uuid, parameters):
     # sharedcloud run create --function_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
-    _create_resource('{}/runs/'.format(BASE_URL), config.token, {
+    _create_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'function': function_uuid,
         'parameters': parameters
     })
@@ -376,7 +428,7 @@ def create(config, function_uuid, parameters):
 @pass_obj
 def delete(config, uuid):
     # sharedcloud run delete --uuid <uuid>
-    _delete_resource('{}/runs/{}/'.format(BASE_URL, uuid), config.token, {
+    _delete_resource('{}/api/v1/runs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid
     })
 
@@ -385,7 +437,7 @@ def delete(config, uuid):
 @pass_obj
 def list(config):
     # sharedcloud function list"
-    _list_resource('{}/runs/'.format(BASE_URL),
+    _list_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION_NAME'],
                    ['uuid', 'parameters', 'created_at', 'function_name'],
@@ -403,7 +455,7 @@ def job(config):
 @job.command(help='List Jobs')
 @pass_obj
 def list(config):
-    _list_resource('{}/jobs/'.format(BASE_URL),
+    _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
                    ['uuid', 'incremental_id', 'status', 'function_output', 'function_response', 'cost', 'duration', 'created_at', 'run', 'function_name'],
@@ -415,7 +467,7 @@ def list(config):
                    })
 
 
-@cli1.group(help='Create/Start/List Instances')
+@cli1.group(help='Create/Update/Start/List Instances')
 @pass_obj
 def instance(config):
     _exit_if_user_is_logged_out(config.token)
@@ -432,7 +484,7 @@ def create(config, name, price_per_hour, max_num_jobs):
         click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
         return None
 
-    r = _create_resource('{}/instances/'.format(BASE_URL), config.token, {
+    r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
         'price_per_hour': price_per_hour,
         'max_num_jobs': max_num_jobs,
@@ -446,7 +498,7 @@ def create(config, name, price_per_hour, max_num_jobs):
 @instance.command(help='List Instances')
 @pass_obj
 def list(config):
-    _list_resource('{}/instances/'.format(BASE_URL),
+    _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION'],
                    ['uuid', 'name', 'status', 'price_per_hour', 'num_running_jobs', 'max_num_jobs', 'last_connection'],
@@ -465,7 +517,7 @@ def list(config):
 def update(config, uuid, name, price_per_hour, max_num_jobs):
     # sharedcloud instance update --name blabla --price_per_hour 2.0 --max_num_jobs 3
 
-    _update_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
+    _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
         'price_per_hour': price_per_hour,
@@ -479,7 +531,7 @@ def update(config, uuid, name, price_per_hour, max_num_jobs):
 def delete(config, uuid):
     # sharedcloud instance delete [--uuid <uuid>]
 
-    r = _delete_resource('{}/instances/{}/'.format(BASE_URL, uuid), config.token, {
+    r = _delete_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid
     })
 
@@ -499,7 +551,7 @@ def start(config, uuid):
         pass
 
     def _make_put_request(action, instance_uuid, token):
-        r = requests.put('{}/instances/{}/{}/'.format(BASE_URL, instance_uuid, action),
+        r = requests.put('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
                          data={}, headers={'Authorization': 'Token {}'.format(token)})
         if r.status_code == 404:
             raise ObjectNotFoundException()
@@ -508,7 +560,7 @@ def start(config, uuid):
         return r
 
     def _make_patch_request(job_uuid, data, token):
-        r = requests.patch('{}/jobs/{}/'.format(BASE_URL, job_uuid),
+        r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
         if r.status_code == 404:
             raise ObjectNotFoundException()

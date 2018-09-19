@@ -18,17 +18,79 @@ class TestUtils:
     def extract_uuid(output):
         return re.findall(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", output)[0]
 
+    # Account
+    @classmethod
+    def create_account(
+            cls,
+            email=None,
+            username=None,
+            password=None):
+        config = Config(token=_read_token())
+        args = ['create']
+
+        if email:
+            args.append('--email')
+            args.append(email)
+        if username:
+            args.append('--username')
+            args.append(username)
+        if password:
+            args.append('--password')
+            args.append(password)
+
+        return cls.runner.invoke(account, args, obj=config)
+
+    @classmethod
+    def update_account(cls,
+                        uuid=None,
+                        email=None,
+                        username=None,
+                        password=None):
+        config = Config(token=_read_token())
+        args = ['update']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        if email:
+            args.append('--email')
+            args.append(email)
+        if username:
+            args.append('--username')
+            args.append(username)
+        if password:
+            args.append('--password')
+            args.append(password)
+
+        return cls.runner.invoke(account, args, obj=config)
+
+    @classmethod
+    def delete_account(cls, uuid=None):
+        config = Config(token=_read_token())
+        args = ['delete']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        return cls.runner.invoke(account, args, obj=config)
+
+    @classmethod
+    def list_account(cls):
+        config = Config(token=_read_token())
+        return cls.runner.invoke(account, [
+            'list',
+        ], obj=config)
+
     @classmethod
     def check_account_output(
             cls,
             expected_email=None,
+            expected_username=None,
             expected_balance=None
     ):
-        config = Config(token=_read_token())
-        columns = ['EMAIL', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN']
-        r = cls.runner.invoke(account, [
-            'list',
-        ], obj=config)
+
+        columns = ['UUID', 'EMAIL', 'USERNAME', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN']
+        r = cls.list_account()
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output
@@ -41,6 +103,9 @@ class TestUtils:
             inverse_idx = num_rows - (idx + 1)
             if expected_email:
                 assert expected_email[inverse_idx] in row
+
+            if expected_username:
+                assert expected_username[inverse_idx] in row
 
             if expected_balance:
                 assert expected_balance[inverse_idx] in row
@@ -70,6 +135,13 @@ class TestUtils:
         return cls.runner.invoke(cli1, ['logout'])
 
     @classmethod
+    def list_functions(cls):
+        config = Config(token=_read_token())
+        return cls.runner.invoke(function, [
+            'list',
+        ], obj=config)
+
+    @classmethod
     def check_list_functions_output(
             cls,
             expected_uuid=None,
@@ -78,11 +150,8 @@ class TestUtils:
             expected_num_runs=None,
             expected_num_functions=None
     ):
-        config = Config(token=_read_token())
         columns = ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN']
-        r = cls.runner.invoke(function, [
-            'list',
-        ], obj=config)
+        r = cls.list_functions()
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output
@@ -177,17 +246,21 @@ class TestUtils:
 
     # Runs
     @classmethod
+    def list_runs(cls):
+        config = Config(token=_read_token())
+        return cls.runner.invoke(run, [
+            'list',
+        ], obj=config)
+
+    @classmethod
     def check_list_runs_output(cls,
                   expected_uuid=None,
                   expected_parameters=None,
                   expected_function_name=None,
                   expected_num_runs=None
     ):
-        config = Config(token=_read_token())
         columns = ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION_NAME']
-        r = cls.runner.invoke(run, [
-            'list',
-        ], obj=config)
+        r = cls.list_runs()
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output
@@ -243,17 +316,21 @@ class TestUtils:
 
     # Jobs
     @classmethod
+    def list_jobs(cls):
+        config = Config(token=_read_token())
+        return cls.runner.invoke(job, [
+            'list',
+        ], obj=config)
+
+    @classmethod
     def check_list_jobs_output(cls,
                   expected_status=None,
                   expected_num_jobs=None,
                   expected_output=None,
                   expected_response=None
     ):
-        config = Config(token=_read_token())
         columns = ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME']
-        r = cls.runner.invoke(job, [
-            'list',
-        ], obj=config)
+        r = cls.list_jobs()
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output

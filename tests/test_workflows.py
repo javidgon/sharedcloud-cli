@@ -8,7 +8,7 @@ username = os.environ.get('SHAREDCLOUD_USERNAME')
 password = os.environ.get('SHAREDCLOUD_PASSWORD')
 
 
-def test_customer_wants_to_see_his_account_information():
+def test_user_wants_to_see_his_account_information():
     # 1) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
@@ -24,6 +24,81 @@ def test_customer_wants_to_see_his_account_information():
     r = TestUtils.logout()
     assert r.exit_code == 0
     assert 'Successfully logged out' in r.output
+
+
+def test_user_creates_updates_and_deletes_an_account():
+    email = 'random555@example.com'
+    username = 'random555'
+    password = 'blabla12345'
+    # 1) Create an account
+    r = TestUtils.create_account(
+        email=email,
+        username=username,
+        password=password
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    account_uuid = TestUtils.extract_uuid(r.output)
+
+    # 2) Login into the system
+    r = TestUtils.login(username, password)
+    assert r.exit_code == 0
+    assert 'Successfully logged in :)' in r.output
+
+    # 3) Query his account details
+    TestUtils.check_account_output(
+        expected_email=email,
+        expected_username=username,
+        expected_balance='$0.0'
+    )
+
+    # 4) Update his account
+    new_email = 'random999@example.com'
+    new_username = 'random999'
+    new_password = 'new_password123'
+
+    r = TestUtils.update_account(
+        uuid=account_uuid,
+        email=new_email,
+        username=new_username,
+        password=new_password
+    )
+    assert r.exit_code == 0
+    assert 'was updated' in r.output
+
+    # 5) Check again for the new values
+    TestUtils.check_account_output(
+        expected_email=new_email,
+        expected_username=new_username,
+        expected_balance='$0.0'
+    )
+
+    # 6) Log out and try to login again with the new password
+    r = TestUtils.logout()
+    assert r.exit_code == 0
+    assert 'Successfully logged out' in r.output
+
+    r = TestUtils.login(new_username, new_password)
+    assert r.exit_code == 0
+    assert 'Successfully logged in :)' in r.output
+
+    # 7) Delete account
+    r = TestUtils.delete_account(
+        uuid=account_uuid
+    )
+    assert r.exit_code == 0
+    assert 'was deleted' in r.output
+
+    # 8) If we try to logout now it should complain because
+    # the account was logged out automatically
+    r = TestUtils.logout()
+    assert r.exit_code == 0
+    assert 'You were already logged out' in r.output
+
+    # 9) Let's see now if we can login or the account is really deleted
+    r = TestUtils.login(new_username, new_password)
+    assert r.exit_code == 0
+    assert '"Unable to log in with provided credentials' in r.output
 
 
 def test_customer_performs_a_complete_workflow_with_code():
