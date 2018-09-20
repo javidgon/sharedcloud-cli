@@ -48,7 +48,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_price_
     r = TestUtils.update_instance(
         name='example1',
         price_per_hour='blabla',
-        max_num_jobs=5
+        max_num_parallel_jobs=5
     )
     # TODO: Maybe here we should also raise an exit_code 2
     assert r.exit_code == 2
@@ -57,18 +57,18 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_price_
     r = TestUtils.logout()
     assert r.exit_code == 0
 
-def test_user_get_validation_error_when_updating_an_instance_with_invalid_max_num_jobs():
+def test_user_get_validation_error_when_updating_an_instance_with_invalid_max_num_parallel_jobs():
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
 
     r = TestUtils.create_instance(
         name='example1',
         price_per_hour=1.5,
-        max_num_jobs='blabla'
+        max_num_parallel_jobs='blabla'
     )
     print(r.exit_code, r.output)
     assert r.exit_code == 2
-    assert 'Invalid value for "--max_num_jobs"' in r.output
+    assert 'Invalid value for "--max_num_parallel_jobs"' in r.output
 
     r = TestUtils.logout()
     assert r.exit_code == 0

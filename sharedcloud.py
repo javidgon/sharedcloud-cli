@@ -217,7 +217,7 @@ def account(config):
 @pass_obj
 def create(config, email, username, password):
     # sharedcloud account create --email blabla@example.com--username blabla --password password
-
+    # TODO: It's automatically logged in
     _create_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL), None, {
         'email': email,
         'username': username,
@@ -246,6 +246,8 @@ def update(config, uuid, email, username, password):
         'password': password
     })
 
+    _login(username, password)
+
 
 @account.command(help='Deletes an Account')
 @click.option('--uuid', required=True, type=click.UUID)
@@ -258,7 +260,7 @@ def delete(config, uuid):
         'uuid': uuid
     })
 
-    logout()
+    _logout()
 
 @account.command(help='List Account Information')
 @pass_obj
@@ -277,11 +279,7 @@ def list(config):
                    })
 
 
-@cli1.command(help='Login into Sharedcloud')
-@click.option('--username', required=True)
-@click.option('--password', required=True)
-def login(username, password):
-    # sharedcloud login username password
+def _login(username, password):
     r = requests.post('{}/api/v1/api-token-auth/'.format(SHAREDCLOUD_CLI_URL), data={
         'username': username,
         'password': password
@@ -291,21 +289,31 @@ def login(username, password):
         result = r.json()
         with open(CLIENT_CONFIG_FILE, 'w+') as f:
             f.write(result.get('token'))
-
-        click.echo('Successfully logged in :)')
     else:
         click.echo(r.content)
+        exit(1)
+
+
+@cli1.command(help='Login into Sharedcloud')
+@click.option('--username', required=True)
+@click.option('--password', required=True)
+def login(username, password):
+    # sharedcloud login username password
+    _login(username, password)
+
+
+def _logout():
+    if os.path.exists(CLIENT_CONFIG_FILE):
+        os.remove(CLIENT_CONFIG_FILE)
+    else:
+        click.echo('You were already logged out.')
+        exit(1)
 
 
 @cli1.command(help='Logout from Sharedcloud')
 def logout():
     # sharedcloud logout
-    if os.path.exists(CLIENT_CONFIG_FILE):
-        os.remove(CLIENT_CONFIG_FILE)
-
-        click.echo('Successfully logged out.')
-    else:
-        click.echo('You were already logged out.')
+    _logout()
 
 
 @cli1.group(help='Create/Delete/Update/List Functions')
@@ -467,10 +475,10 @@ def instance(config):
 @instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
 @click.option('--price_per_hour', required=True, type=click.FLOAT)
-@click.option('--max_num_jobs', required=True, type=click.INT)
+@click.option('--max_num_parallel_jobs', required=True, type=click.INT)
 @pass_obj
-def create(config, name, price_per_hour, max_num_jobs):
-    # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_jobs 3
+def create(config, name, price_per_hour, max_num_parallel_jobs):
+    # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_parallel_jobs 3
     if os.path.exists(INSTANCE_CONFIG_FILE):
         click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
         exit(1)
@@ -478,7 +486,7 @@ def create(config, name, price_per_hour, max_num_jobs):
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
         'price_per_hour': price_per_hour,
-        'max_num_jobs': max_num_jobs,
+        'max_num_parallel_jobs': max_num_parallel_jobs,
     })
     if r.status_code == 201:
         instance = r.json()
@@ -491,8 +499,8 @@ def create(config, name, price_per_hour, max_num_jobs):
 def list(config):
     _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'price_per_hour', 'num_running_jobs', 'max_num_jobs', 'last_connection'],
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION'],
+                   ['uuid', 'name', 'status', 'price_per_hour', 'num_running_jobs', 'max_num_parallel_jobs', 'last_connection'],
                    mappers={
                        'status': _map_instance_status_to_description,
                        'last_connection': _map_datetime_obj_to_human_representation
@@ -503,16 +511,16 @@ def list(config):
 @click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
 @click.option('--name', required=False)
 @click.option('--price_per_hour', required=False, type=click.FLOAT)
-@click.option('--max_num_jobs', required=False, type=click.INT)
+@click.option('--max_num_parallel_jobs', required=False, type=click.INT)
 @pass_obj
-def update(config, uuid, name, price_per_hour, max_num_jobs):
-    # sharedcloud instance update --name blabla --price_per_hour 2.0 --max_num_jobs 3
+def update(config, uuid, name, price_per_hour, max_num_parallel_jobs):
+    # sharedcloud instance update --name blabla --price_per_hour 2.0 --max_num_parallel_jobs 3
 
     _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
         'price_per_hour': price_per_hour,
-        'max_num_jobs': max_num_jobs,
+        'max_num_parallel_jobs': max_num_parallel_jobs,
     })
 
 

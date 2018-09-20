@@ -12,7 +12,6 @@ def test_user_wants_to_see_his_account_information():
     # 1) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 2) Query his account details
     TestUtils.check_account_output(
@@ -23,7 +22,6 @@ def test_user_wants_to_see_his_account_information():
     # 3) Logout of the system
     r = TestUtils.logout()
     assert r.exit_code == 0
-    assert 'Successfully logged out' in r.output
 
 
 def test_user_creates_updates_and_deletes_an_account():
@@ -43,7 +41,6 @@ def test_user_creates_updates_and_deletes_an_account():
     # 2) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 3) Query his account details
     TestUtils.check_account_output(
@@ -76,11 +73,9 @@ def test_user_creates_updates_and_deletes_an_account():
     # 6) Log out and try to login again with the new password
     r = TestUtils.logout()
     assert r.exit_code == 0
-    assert 'Successfully logged out' in r.output
 
     r = TestUtils.login(new_username, new_password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 7) Delete account
     r = TestUtils.delete_account(
@@ -88,17 +83,16 @@ def test_user_creates_updates_and_deletes_an_account():
     )
     assert r.exit_code == 0
     assert 'was deleted' in r.output
-    assert 'Successfully logged out' in r.output
 
     # 8) If we try to logout now it should complain because
     # the account was logged out automatically
     r = TestUtils.logout()
-    assert r.exit_code == 0
+    assert r.exit_code == 1
     assert 'You were already logged out' in r.output
 
     # 9) Let's see now if we can login or the account is really deleted
     r = TestUtils.login(new_username, new_password)
-    assert r.exit_code == 0
+    assert r.exit_code == 1
     assert '"Unable to log in with provided credentials' in r.output
 
 
@@ -119,7 +113,6 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     # 2) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 3) Query his account details
     TestUtils.check_account_output(
@@ -156,7 +149,6 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     )
     assert r.exit_code == 0
     assert 'was deleted' in r.output
-    assert 'Successfully logged out' in r.output
 
 
 def test_user_tries_to_change_his_password_but_his_password_is_too_weak():
@@ -176,7 +168,6 @@ def test_user_tries_to_change_his_password_but_his_password_is_too_weak():
     # 2) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 3) Query his account details
     TestUtils.check_account_output(
@@ -205,7 +196,6 @@ def test_user_tries_to_change_his_password_but_his_password_is_too_weak():
     )
     assert r.exit_code == 0
     assert 'was deleted' in r.output
-    assert 'Successfully logged out' in r.output
 
 
 def test_customer_performs_a_complete_workflow_with_code():
@@ -216,7 +206,6 @@ def test_customer_performs_a_complete_workflow_with_code():
     # 1) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
 
     # 2) Create a function to execute (by providing the code inline)
@@ -292,7 +281,6 @@ def test_customer_performs_a_complete_workflow_with_code():
     # 11) Logout of the system
     r = TestUtils.logout()
     assert r.exit_code == 0
-    assert 'Successfully logged out' in r.output
 
 
 def test_customer_performs_a_complete_workflow_with_file():
@@ -303,7 +291,6 @@ def test_customer_performs_a_complete_workflow_with_file():
     # 1) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 2) Create a function to execute (by providing the filepath)
     r = TestUtils.create_function(
@@ -379,7 +366,6 @@ def test_customer_performs_a_complete_workflow_with_file():
     # 11) Logout of the system
     r = TestUtils.logout()
     assert r.exit_code == 0
-    assert 'Successfully logged out' in r.output
 
 
 def test_provider_performs_complete_workflow_with_a_job():
@@ -390,7 +376,6 @@ def test_provider_performs_complete_workflow_with_a_job():
     # 1) Login into the system
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
-    assert 'Successfully logged in :)' in r.output
 
     # 2) Create a function to execute (by providing the code inline)
     r = TestUtils.create_function(
@@ -416,7 +401,7 @@ def test_provider_performs_complete_workflow_with_a_job():
     r = TestUtils.create_instance(
         name='instance1',
         price_per_hour=1.5,
-        max_num_jobs=5
+        max_num_parallel_jobs=5
     )
     assert r.exit_code == 0
     assert 'has been created' in r.output
@@ -429,7 +414,7 @@ def test_provider_performs_complete_workflow_with_a_job():
         expected_status=['NOT_AVAILABLE'],
         expected_price_per_hour=['1.5'],
         expected_num_running_jobs=['0'],
-        expected_max_num_jobs=['5'],
+        expected_max_num_parallel_jobs=['5'],
         expected_num_instances=1
     )
 
@@ -438,7 +423,7 @@ def test_provider_performs_complete_workflow_with_a_job():
         uuid=instance_uuid,
         name='instance2',
         price_per_hour=2.5,
-        max_num_jobs=10
+        max_num_parallel_jobs=10
     )
     assert r.exit_code == 0
     assert 'was updated' in r.output
@@ -451,7 +436,7 @@ def test_provider_performs_complete_workflow_with_a_job():
         expected_status=['NOT_AVAILABLE'],
         expected_price_per_hour=['2.5'],
         expected_num_running_jobs=['0'],
-        expected_max_num_jobs=['10'],
+        expected_max_num_parallel_jobs=['10'],
         expected_num_instances=1
     )
     # 8) Start the instance so it starts listening from tasks.
@@ -468,7 +453,7 @@ def test_provider_performs_complete_workflow_with_a_job():
         expected_status=['AVAILABLE'],
         expected_price_per_hour=['2.5'],
         expected_num_running_jobs=['2'],
-        expected_max_num_jobs=['10'],
+        expected_max_num_parallel_jobs=['10'],
         expected_num_instances=1
     )
     TestUtils.check_list_jobs_output(
@@ -523,4 +508,3 @@ def test_provider_performs_complete_workflow_with_a_job():
     # 12) Logout of the system
     r = TestUtils.logout()
     assert r.exit_code == 0
-    assert 'Successfully logged out' in r.output

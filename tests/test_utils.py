@@ -365,10 +365,10 @@ class TestUtils:
                        expected_status=None,
                        expected_price_per_hour=None,
                        expected_num_running_jobs=None,
-                       expected_max_num_jobs=None,
+                       expected_max_num_parallel_jobs=None,
                        expected_num_instances=None):
         config = Config(token=_read_token())
-        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_JOBS' ,'LAST_CONNECTION']
+        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION']
         r = cls.runner.invoke(instance, [
             'list',
         ], obj=config)
@@ -401,8 +401,8 @@ class TestUtils:
             if expected_num_running_jobs:
                 assert expected_num_running_jobs[inverse_order] in row
 
-            if expected_max_num_jobs:
-                assert expected_max_num_jobs[inverse_order] in row
+            if expected_max_num_parallel_jobs:
+                assert expected_max_num_parallel_jobs[inverse_order] in row
 
         return r
 
@@ -411,7 +411,7 @@ class TestUtils:
             cls,
             name=None,
             price_per_hour=None,
-            max_num_jobs=None):
+            max_num_parallel_jobs=None):
         config = Config(token=_read_token())
         args =['create']
 
@@ -421,9 +421,9 @@ class TestUtils:
         if price_per_hour:
             args.append('--price_per_hour')
             args.append(price_per_hour)
-        if max_num_jobs:
-            args.append('--max_num_jobs')
-            args.append(max_num_jobs)
+        if max_num_parallel_jobs:
+            args.append('--max_num_parallel_jobs')
+            args.append(max_num_parallel_jobs)
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
@@ -432,7 +432,7 @@ class TestUtils:
             uuid=None,
             name=None,
             price_per_hour=None,
-            max_num_jobs=None):
+            max_num_parallel_jobs=None):
         config = Config(token=_read_token())
         args = ['update']
 
@@ -445,9 +445,9 @@ class TestUtils:
         if price_per_hour:
             args.append('--price_per_hour')
             args.append(price_per_hour)
-        if max_num_jobs:
-            args.append('--max_num_jobs')
-            args.append(max_num_jobs)
+        if max_num_parallel_jobs:
+            args.append('--max_num_parallel_jobs')
+            args.append(max_num_parallel_jobs)
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
