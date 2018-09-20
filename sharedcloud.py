@@ -1,5 +1,10 @@
+import multiprocessing
+import subprocess
+
 import click
 import datetime
+
+import psutil
 import requests
 import os
 import time
@@ -46,7 +51,7 @@ def _read_instance_uuid():
 
 def _exit_if_user_is_logged_out(token):
     if not token:
-        print('You seem to be logged out. Please log in first')
+        click.echo('You seem to be logged out. Please log in first')
         exit(1)
 
 
@@ -572,6 +577,7 @@ def start(config, uuid):
             text_file.write(data)
 
     def _generate_image(job_uuid, job_folder):
+        # TODO: This output should probably be sent to us to analyse it. e.g., docker build errors
         build_output = b''
         image_tag = job_uuid
 
@@ -580,7 +586,6 @@ def start(config, uuid):
              '-f', '{}/{}/Dockerfile'.format(DATA_FOLDER, job_uuid), job_folder])
         for line in docker_build.splitlines():
             build_output += line + b'\n'
-
         return image_tag, build_output
 
     def _run_container(image_tag):
@@ -588,6 +593,7 @@ def start(config, uuid):
         function_response = b''
         container_name = image_tag
         has_timeout = False
+        has_failed = False
         def _extract_output(output):
             function_output = b''
             function_response = b''
@@ -602,19 +608,20 @@ def start(config, uuid):
             return function_output, function_response
 
         try:
-            #TODO: We probably need to capture the real exception around this area
-            docker_run = check_output(
+            p = subprocess.Popen(
                 ['docker', 'run', '--memory=1024m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)],
-            )
-            function_output, function_response = _extract_output(docker_run)
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, error = p.communicate()
+            function_output, function_response = _extract_output(output + b'\n' + error)
+            if error:
+                has_failed = True
         except CalledProcessError as grepexc:
-            # When it exists due to a timeout we don't exit the cli as it's kind of an expected error
             if grepexc.returncode == 124:
                 has_timeout = True
             else:
                 raise
 
-        return container_name, function_output, function_response, has_timeout
+        return container_name, function_output, function_response, has_timeout, has_failed
 
     def _destroy_container(container_name, build_output):
         try:
@@ -647,18 +654,80 @@ def start(config, uuid):
         except CalledProcessError as pgrepexc:
             exit('Is the Docker daemon running in your machine?')
 
-    def _report_failure(exception_message, job_uuid, function_response, build_output):
-        build_output = _destroy_container(job_uuid, build_output)
-        build_output = _destroy_image(job_uuid, build_output)
+    def _report_failure(job_uuid, function_output, function_response, build_output):
         _send_job_results(
             job_uuid, {
                 "build_output": build_output,
-                "function_output": exception_message,
+                "function_output": function_output,
                 "function_response": function_response,
                 "status": JOB_STATUSES['FAILED']
             }, config.token)
 
-    started_at = datetime.datetime.now()
+    def _report_success(job_uuid, function_output, function_response, build_output):
+        _send_job_results(
+            job_uuid, {
+                "build_output": build_output,
+                "function_output": function_output,
+                "function_response": function_response,
+                "status": JOB_STATUSES['SUCCEEDED']
+            }, config.token)
+
+    def _report_timeout(job_uuid, function_output, function_response, build_output):
+        _send_job_results(
+            job_uuid, {
+                "build_output": build_output,
+                "function_output": function_output,
+                "function_response": function_response,
+                "status": JOB_STATUSES['TIMEOUT']
+            }, config.token)
+
+    def _job_loop(
+            config, job_uuid, job_folder, job_dockerfile, job_wrapped_code,
+            build_output, function_output, function_response):
+        # We update the job in the remote, so it doesn't get assigned to other instances
+        _send_job_results(
+            job_uuid, {
+                "status": JOB_STATUSES['IN_PROGRESS']
+            }, config.token)
+
+        # Now we build the job folder in the local computer, so we can do the job
+
+        # If the job folder already exists, we clean up before
+        if os.path.exists(job_folder):
+            shutil.rmtree(job_folder)
+
+        # Here we create an empty job folder
+        os.makedirs(job_folder)
+
+        # Here we create files from the received Dockerfile and Code
+        _create_file_from_data(job_dockerfile, '{}/Dockerfile'.format(job_folder))
+        _create_file_from_data(job_wrapped_code, '{}/file'.format(job_folder))
+
+        # After the files have been created, we can generate the image that we are going to
+        # use to run our container
+        container_name = None
+        image_tag = None
+
+        image_tag, build_output = _generate_image(job_uuid, job_folder)
+        # After the image has been generated, we run our container and calculate our result
+        container_name, function_output, function_response, has_timeout, has_failed = _run_container(image_tag)
+        if has_failed:
+            _report_failure(job_uuid, function_output, function_response, build_output)
+        elif has_timeout:
+            _report_timeout(job_uuid, function_output, function_response, build_output)
+        else:
+           _report_success(job_uuid, function_output, function_response, build_output)
+
+        # After this has been done, we make sure to clean up the image, container and job folder
+        if container_name:
+            build_output = _destroy_container(container_name, build_output)
+        # TODO: Think about this, maybe we don't want to destroy the image
+        # if image_tag:
+        #     build_output = _destroy_image(image_tag, build_output)
+        shutil.rmtree(job_folder)
+
+        p = psutil.Process(os.getpid())
+        p.terminate()
 
     instance_uuid = uuid
 
@@ -673,7 +742,7 @@ def start(config, uuid):
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
-        print('Ready to take Jobs...')
+        click.echo('Ready to take Jobs...')
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
         while True:
@@ -685,56 +754,22 @@ def start(config, uuid):
             if num_jobs > 0:
                 click.echo('{} job/s arrived, please be patient...'.format(num_jobs))
 
+            processes = {}
             for job in jobs:
                 # We extract some useful data about the job/instance that we are going to need
                 job_uuid = job.get('job_uuid')
+                click.echo('Starting Job {}...'.format(job_uuid))
+
                 job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
+                job_dockerfile = job.get('dockerfile')
+                job_wrapped_code = job.get('wrapped_code')
 
-                # We update the job in the remote, so it doesn't get assigned to other instances
-                _send_job_results(
-                    job_uuid, {
-                        "status": JOB_STATUSES['IN_PROGRESS']
-                    }, config.token)
+                processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(config, job_uuid, job_folder, job_dockerfile, job_wrapped_code,
+                          build_output, function_output, function_response))
+                processes[job_uuid].start()
 
-                # Now we build the job folder in the local computer, so we can do the job
-
-                # If the job folder already exists, we clean up before
-                if os.path.exists(job_folder):
-                    shutil.rmtree(job_folder)
-
-                # Here we create an empty job folder
-                os.makedirs(job_folder)
-
-                # Here we create files from the received Dockerfile and Code
-                _create_file_from_data(job.get('dockerfile'), '{}/Dockerfile'.format(job_folder))
-                _create_file_from_data(job.get('wrapped_code'), '{}/file'.format(job_folder))
-
-                # After the files have been created, we can generate the image that we are going to
-                # use to run our container
-                container_name = None
-                image_tag = None
-                try:
-                    image_tag, build_output = _generate_image(job_uuid, job_folder)
-                    # After the image has been generated, we run our container and calculate our result
-                    container_name, function_output, function_response, has_timeout = _run_container(image_tag)
-                except Exception as e:
-                    _report_failure(e, job_uuid, function_response, build_output)
-                else:
-                    # Finally, we let our remote know that job's stats
-                    _send_job_results(
-                        job_uuid, {
-                            "build_output": build_output,
-                            "function_output": function_output,
-                            "function_response": function_response,
-                            "status": JOB_STATUSES['SUCCEEDED'] if not has_timeout else JOB_STATUSES['TIMEOUT']
-                        }, config.token)
-                finally:
-                    # After this has been done, we make sure to clean up the image, container and job folder
-                    if container_name:
-                        build_output = _destroy_container(container_name, build_output)
-                    if image_tag:
-                        build_output = _destroy_image(image_tag, build_output)
-                    shutil.rmtree(job_folder)
+            for idx, process in processes.items():
+                process.join()
 
             if num_jobs > 0:
                 click.echo('All jobs were completed!')

@@ -61,7 +61,7 @@ jobs:
       - run:
           name: run backend tests
           command: |
-            sleep 10
+            sleep 13
             . venv/bin/activate
             nosetests
 
