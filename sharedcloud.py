@@ -461,8 +461,8 @@ def job(config):
 def list(config):
     _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
-                   ['uuid', 'incremental_id', 'status', 'function_output', 'function_response', 'cost', 'duration', 'created_at', 'run', 'function_name'],
+                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['uuid', 'incremental_id', 'status', 'cost', 'duration', 'created_at', 'run', 'function_name'],
                    mappers={
                        'cost': _map_cost_number_to_version_with_currency,
                        'duration': _map_duration_to_readable_version,
@@ -484,9 +484,9 @@ def instance(config):
 @pass_obj
 def create(config, name, price_per_hour, max_num_parallel_jobs):
     # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_parallel_jobs 3
-    if os.path.exists(INSTANCE_CONFIG_FILE):
-        click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
-        exit(1)
+    # if os.path.exists(INSTANCE_CONFIG_FILE):
+    #     click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
+    #     exit(1)
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,

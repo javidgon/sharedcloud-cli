@@ -1,20 +1,15 @@
-import os
-
 from tests.test_utils import TestUtils
-
-username = os.environ.get('SHAREDCLOUD_USERNAME')
-password = os.environ.get('SHAREDCLOUD_PASSWORD')
 
 
 # Missing fields
 def test_user_get_validation_error_when_login_with_missing_username():
-    r = TestUtils.login(password=password)
+    r = TestUtils.login(password='example')
     assert r.exit_code == 2
     assert 'Missing option "--username"' in r.output
 
 
 def test_user_get_validation_error_when_login_with_missing_password():
-    r = TestUtils.login(username=username)
+    r = TestUtils.login(username='example')
     assert r.exit_code == 2
     assert 'Missing option "--password"' in r.output
 

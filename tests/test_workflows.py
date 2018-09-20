@@ -4,20 +4,16 @@ import subprocess
 import time
 from subprocess import check_output
 
-from tests.test_utils import TestUtils
-
-username = os.environ.get('SHAREDCLOUD_USERNAME')
-password = os.environ.get('SHAREDCLOUD_PASSWORD')
+from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown, _accountWithSpecialPowersSetUp
 
 
 def test_user_wants_to_see_his_account_information():
-    # 1) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
+    # 1) Create an account and login into the system
+    email, username, password, account_uuid = _accountSetUp()
 
     # 2) Query his account details
     TestUtils.check_account_output(
-        expected_email='superuser@example.com',
+        expected_email=email,
         expected_balance='$0.0'
     )
 
@@ -25,36 +21,30 @@ def test_user_wants_to_see_his_account_information():
     r = TestUtils.logout()
     assert r.exit_code == 0
 
-
-def test_user_creates_updates_and_deletes_an_account():
-    email = 'random555@example.com'
-    username = 'random555'
-    password = 'blabla12345'
-    # 1) Create an account
-    r = TestUtils.create_account(
-        email=email,
-        username=username,
-        password=password
-    )
-    assert r.exit_code == 0
-    assert 'has been created' in r.output
-    account_uuid = TestUtils.extract_uuid(r.output)
-
-    # 2) Login into the system
+    # 4) Login again
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
 
-    # 3) Query his account details
+    # 5) Delete his account
+    r = TestUtils.delete_account(
+        uuid=account_uuid
+    )
+    assert r.exit_code == 0
+    assert 'was deleted' in r.output
+
+def test_user_creates_updates_and_deletes_an_account():
+    # 1) Create account
+    email, username, password, account_uuid = _accountSetUp()
+
+    # 2) Query his account details
     TestUtils.check_account_output(
         expected_email=email,
         expected_username=username,
         expected_balance='$0.0'
     )
 
-    # 4) Update his account
-    new_email = 'random999@example.com'
-    new_username = 'random999'
-    new_password = 'new_password123'
+    # 3) Update his account
+    new_email, new_username, new_password = TestUtils.generate_credentials()
 
     r = TestUtils.update_account(
         uuid=account_uuid,
@@ -65,58 +55,40 @@ def test_user_creates_updates_and_deletes_an_account():
     assert r.exit_code == 0
     assert 'was updated' in r.output
 
-    # 5) Check again for the new values
+    # 4) Check again for the new values
     TestUtils.check_account_output(
         expected_email=new_email,
         expected_username=new_username,
         expected_balance='$0.0'
     )
 
-    # 6) Log out and try to login again with the new password
+    # 5) Log out and try to login again with the new password
     r = TestUtils.logout()
     assert r.exit_code == 0
 
     r = TestUtils.login(new_username, new_password)
     assert r.exit_code == 0
 
-    # 7) Delete account
-    r = TestUtils.delete_account(
-        uuid=account_uuid
-    )
-    assert r.exit_code == 0
-    assert 'was deleted' in r.output
+    # 6) Delete account
+    _accountTearDown(account_uuid)
 
-    # 8) If we try to logout now it should complain because
+    # 7) If we try to logout now it should complain because
     # the account was logged out automatically
     r = TestUtils.logout()
     assert r.exit_code == 1
     assert 'You were already logged out' in r.output
 
-    # 9) Let's see now if we can login or the account is really deleted
+    # 8) Let's see now if we can login or the account is really deleted
     r = TestUtils.login(new_username, new_password)
     assert r.exit_code == 1
     assert '"Unable to log in with provided credentials' in r.output
 
 
 def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
-    email = 'random555@example.com'
-    username = 'random555'
-    password = 'blabla12345'
     # 1) Create an account
-    r = TestUtils.create_account(
-        email=email,
-        username=username,
-        password=password
-    )
-    assert r.exit_code == 0
-    assert 'has been created' in r.output
-    account_uuid = TestUtils.extract_uuid(r.output)
+    email, username, password, account_uuid = _accountSetUp()
 
-    # 2) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
-
-    # 3) Query his account details
+    # 2) Query his account details
     TestUtils.check_account_output(
         expected_email=email,
         expected_username=username,
@@ -127,9 +99,10 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     runtime = 'python36'
     parameters = '((1,), (2,))'
 
-    # 4) Create a function to execute (by providing the code inline)
+    # 3) Create a function to execute (by providing the code inline)
+    function_name = TestUtils.generate_random_seed()
     r = TestUtils.create_function(
-        name='example1',
+        name=function_name,
         code=code,
         runtime=runtime
     )
@@ -137,7 +110,7 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     assert 'has been created' in r.output
     function_uuid = TestUtils.extract_uuid(r.output)
 
-    # 5) Create a run where we specify some parameters
+    # 4) Create a run where we specify some parameters
     r = TestUtils.create_run(
         function_uuid=function_uuid,
         parameters=parameters
@@ -145,74 +118,50 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     assert r.exit_code == 1
     assert 'you need a balance higher than 0 to create new runs' in r.output
 
-    # 6) Delete account
-    r = TestUtils.delete_account(
-        uuid=account_uuid
-    )
-    assert r.exit_code == 0
-    assert 'was deleted' in r.output
+    # 5) Delete account
+    _accountTearDown(account_uuid)
 
 
 def test_user_tries_to_change_his_password_but_his_password_is_too_weak():
-    email = 'random555@example.com'
-    username = 'random555'
-    password = 'blabla12345'
     # 1) Create an account
-    r = TestUtils.create_account(
-        email=email,
-        username=username,
-        password=password
-    )
-    assert r.exit_code == 0
-    assert 'has been created' in r.output
-    account_uuid = TestUtils.extract_uuid(r.output)
+    email, username, password, account_uuid = _accountSetUp()
 
-    # 2) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
 
-    # 3) Query his account details
+    # 2) Query his account details
     TestUtils.check_account_output(
         expected_email=email,
         expected_username=username,
         expected_balance='$0.0'
     )
 
-    # 4) Update his account
-    new_email = 'random999@example.com'
-    new_username = 'random999'
-    new_password = '12345'
+    # 3) Update his account
+    new_email, new_username, new_password = TestUtils.generate_credentials()
 
     r = TestUtils.update_account(
         uuid=account_uuid,
         email=new_email,
         username=new_username,
-        password=new_password
+        password='12345'
     )
     assert r.exit_code == 1
     assert 'This password is too short. It must contain at least 9 characters' in r.output
 
-    # 5) Delete account
-    r = TestUtils.delete_account(
-        uuid=account_uuid
-    )
-    assert r.exit_code == 0
-    assert 'was deleted' in r.output
-
+    # 4) Delete account
+    _accountTearDown(account_uuid)
 
 def test_customer_performs_a_complete_workflow_with_code():
     code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
     runtime = 'python36'
     parameters = '((1,), (2,))'
 
-    # 1) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
-
+    # 1) Create account with special powers (doesn't need money)
+    email, username, password, account_uuid = _accountWithSpecialPowersSetUp(1)
 
     # 2) Create a function to execute (by providing the code inline)
+    function_name = TestUtils.generate_random_seed()
+
     r = TestUtils.create_function(
-        name='example1',
+        name=function_name,
         code=code,
         runtime=runtime
     )
@@ -232,7 +181,7 @@ def test_customer_performs_a_complete_workflow_with_code():
     # 4) List the function that we just created
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
-        expected_name=['example1'],
+        expected_name=[function_name],
         expected_runtime=runtime,
         expected_num_runs=['1'],
         expected_num_functions=1
@@ -242,7 +191,7 @@ def test_customer_performs_a_complete_workflow_with_code():
     TestUtils.check_list_runs_output(
         expected_uuid=[run_uuid],
         expected_parameters=[parameters],
-        expected_function_name=['example1'],
+        expected_function_name=[function_name],
         expected_num_runs=1
     )
 
@@ -258,9 +207,11 @@ def test_customer_performs_a_complete_workflow_with_code():
     assert 'was deleted' in r.output
 
     # 8) Update the function with a different name
+    new_function_name = TestUtils.generate_random_seed()
+
     r = TestUtils.update_function(
         uuid=function_uuid,
-        name='example2'
+        name=new_function_name
     )
     assert r.exit_code == 0
     assert 'was updated' in r.output
@@ -269,7 +220,7 @@ def test_customer_performs_a_complete_workflow_with_code():
     # 9) We list the function we just updated
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
-        expected_name=['example2'],
+        expected_name=[new_function_name],
         expected_runtime=runtime,
         expected_num_runs=['0'],
         expected_num_functions=1
@@ -280,9 +231,8 @@ def test_customer_performs_a_complete_workflow_with_code():
     assert r.exit_code == 0
     assert 'was deleted' in r.output
 
-    # 11) Logout of the system
-    r = TestUtils.logout()
-    assert r.exit_code == 0
+    # 11) Delete account
+    _accountTearDown(account_uuid)
 
 
 def test_customer_performs_a_complete_workflow_with_file():
@@ -290,13 +240,13 @@ def test_customer_performs_a_complete_workflow_with_file():
     runtime = 'python36'
     parameters = '((1,), (2,))'
 
-    # 1) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
+    # 1) Create account with special powers (doesn't need money)
+    email, username, password, account_uuid = _accountWithSpecialPowersSetUp(2)
 
     # 2) Create a function to execute (by providing the filepath)
+    function_name = TestUtils.generate_random_seed()
     r = TestUtils.create_function(
-        name='example1',
+        name=function_name,
         file=filepath,
         runtime=runtime
     )
@@ -317,7 +267,7 @@ def test_customer_performs_a_complete_workflow_with_file():
     # 4) List the function that we just created
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
-        expected_name=['example1'],
+        expected_name=[function_name],
         expected_runtime=runtime,
         expected_num_runs=['1'],
         expected_num_functions=1
@@ -327,7 +277,7 @@ def test_customer_performs_a_complete_workflow_with_file():
     TestUtils.check_list_runs_output(
         expected_uuid=[run_uuid],
         expected_parameters=[parameters],
-        expected_function_name=['example1'],
+        expected_function_name=[function_name],
         expected_num_runs=1
     )
 
@@ -343,9 +293,11 @@ def test_customer_performs_a_complete_workflow_with_file():
     assert 'was deleted' in r.output
 
     # 8) Update the function with a different name
+    new_function_name = TestUtils.generate_random_seed()
+
     r = TestUtils.update_function(
         uuid=function_uuid,
-        name='example2'
+        name=new_function_name
     )
     assert r.exit_code == 0
     assert 'was updated' in r.output
@@ -354,7 +306,7 @@ def test_customer_performs_a_complete_workflow_with_file():
     # 9) We list the function we just updated
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
-        expected_name=['example2'],
+        expected_name=[new_function_name],
         expected_runtime=runtime,
         expected_num_runs=['0'],
         expected_num_functions=1
@@ -366,22 +318,22 @@ def test_customer_performs_a_complete_workflow_with_file():
     assert 'was deleted' in r.output
 
     # 11) Logout of the system
-    r = TestUtils.logout()
-    assert r.exit_code == 0
+    _accountTearDown(account_uuid)
 
 
 def test_provider_performs_complete_workflow_with_jobs_that_succeed():
-    code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
-    runtime = 'python36'
+    code = 'def handler(event): print "Hello World {}".format(event[0]); return 42 + int(event[0])'
+    runtime = 'python27'
     parameters = '((1,),(2,),(3,))'
 
-    # 1) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
+    # 1) Create account with special powers (doesn't need money)
+    email, username, password, account_uuid = _accountWithSpecialPowersSetUp(3)
 
     # 2) Create a function to execute (by providing the code inline)
+    function_name = TestUtils.generate_random_seed()
+
     r = TestUtils.create_function(
-        name='example1',
+        name=function_name,
         code=code,
         runtime=runtime
     )
@@ -400,8 +352,10 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     run_uuid = TestUtils.extract_uuid(r.output)
 
     # 4) Create an instance
+    instance_name = TestUtils.generate_random_seed()
+
     r = TestUtils.create_instance(
-        name='instance1',
+        name=instance_name,
         price_per_hour=1.5,
         max_num_parallel_jobs=2
     )
@@ -412,7 +366,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     # 5) List the instance we just created
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
-        expected_name=['instance1'],
+        expected_name=[instance_name],
         expected_status=['NOT_AVAILABLE'],
         expected_price_per_hour=['1.5'],
         expected_num_running_jobs=['0'],
@@ -421,9 +375,11 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     )
 
     # 6) Update the instance we just created
+    new_instance_name = TestUtils.generate_random_seed()
+
     r = TestUtils.update_instance(
         uuid=instance_uuid,
-        name='instance2',
+        name=new_instance_name,
         price_per_hour=2.5,
         max_num_parallel_jobs=2
     )
@@ -434,7 +390,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     # 7) List the instance we just updated
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
-        expected_name=['instance2'],
+        expected_name=[new_instance_name],
         expected_status=['NOT_AVAILABLE'],
         expected_price_per_hour=['2.5'],
         expected_num_running_jobs=['0'],
@@ -456,7 +412,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
 
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
-        expected_name=['instance2'],
+        expected_name=[new_instance_name],
         expected_status=['AVAILABLE'],
         expected_price_per_hour=['2.5'],
         expected_num_running_jobs=['2'],
@@ -476,20 +432,18 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     assert 'Please wait until they are finished' in r.output
 
     # We wait until the process has finished
-    time.sleep(150)
+    time.sleep(400)
     p.terminate()
 
     # 9) List the jobs that were generated by the run. We check that the jobs were processed successfully
     TestUtils.check_list_jobs_output(
         expected_status=['SUCCEEDED', 'SUCCEEDED', 'SUCCEEDED'],
-        expected_output=('Hello World 1', 'Hello World 2', 'Hello World 3'),
-        expected_response=('43', '44', '45'),
         expected_num_jobs = 3,
     )
 
     # 10) Check balance
     TestUtils.check_account_output(
-        expected_email='superuser@example.com',
+        expected_email=email,
         expected_balance='$-0.66'
     )
 
@@ -503,23 +457,23 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     assert r.exit_code == 0
     assert 'was deleted' in r.output
 
-    # 12) Logout of the system
-    r = TestUtils.logout()
-    assert r.exit_code == 0
+    # 12) Delete account
+    _accountTearDown(account_uuid)
 
 
 def test_provider_performs_complete_workflow_with_jobs_that_fail():
-    code = 'def handler(event): print "Hello World {}".format(event[0]); return 42 + int(event[0])'
-    runtime = 'python36'
+    code = 'function handler(event){console.log(Hello World " + event[0]); return 42 + parseInt(event[1]);'
+    runtime = 'node8'
     parameters = '((1,),)'
 
-    # 1) Login into the system
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
+    # 1) Create account with special powers (doesn't need money)
+    email, username, password, account_uuid = _accountWithSpecialPowersSetUp(1)
 
     # 2) Create a function to execute (by providing the code inline)
+    function_name = TestUtils.generate_random_seed()
+
     r = TestUtils.create_function(
-        name='example1',
+        name=function_name,
         code=code,
         runtime=runtime
     )
@@ -538,8 +492,10 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     run_uuid = TestUtils.extract_uuid(r.output)
 
     # 4) Create an instance
+    instance_name = TestUtils.generate_random_seed()
+
     r = TestUtils.create_instance(
-        name='instance1',
+        name=instance_name,
         price_per_hour=1.5,
         max_num_parallel_jobs=2
     )
@@ -550,7 +506,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     # 5) List the instance we just created
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
-        expected_name=['instance1'],
+        expected_name=[instance_name],
         expected_status=['NOT_AVAILABLE'],
         expected_price_per_hour=['1.5'],
         expected_num_running_jobs=['0'],
@@ -559,9 +515,11 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     )
 
     # 6) Update the instance we just created
+    new_instance_name = TestUtils.generate_random_seed()
+
     r = TestUtils.update_instance(
         uuid=instance_uuid,
-        name='instance2',
+        name=new_instance_name,
         price_per_hour=2.5,
         max_num_parallel_jobs=2
     )
@@ -572,7 +530,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     # 7) List the instance we just updated
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
-        expected_name=['instance2'],
+        expected_name=[new_instance_name],
         expected_status=['NOT_AVAILABLE'],
         expected_price_per_hour=['2.5'],
         expected_num_running_jobs=['0'],
@@ -594,7 +552,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
 
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
-        expected_name=['instance2'],
+        expected_name=[new_instance_name],
         expected_status=['AVAILABLE'],
         expected_price_per_hour=['2.5'],
         expected_num_running_jobs=['2'],
@@ -614,20 +572,18 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     assert 'Please wait until they are finished' in r.output
 
     # We wait until the process has finished
-    time.sleep(150)
+    time.sleep(100)
     p.terminate()
 
     # 9) List the jobs that were generated by the run. We check that the jobs were processed successfully
     TestUtils.check_list_jobs_output(
         expected_status=['FAILED'],
-        expected_output=('SyntaxError: invalid syntax'),
-        expected_response=(''),
         expected_num_jobs = 1,
     )
 
     # 10) Check balance
     TestUtils.check_account_output(
-        expected_email='superuser@example.com',
+        expected_email=email,
         expected_balance='$0.0'
     )
 
@@ -642,5 +598,4 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     assert 'was deleted' in r.output
 
     # 12) Logout of the system
-    r = TestUtils.logout()
-    assert r.exit_code == 0
+    _accountTearDown(account_uuid)

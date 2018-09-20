@@ -1,10 +1,4 @@
-import os
-
 from tests.test_utils import TestUtils
-
-
-username = os.environ.get('SHAREDCLOUD_USERNAME')
-password = os.environ.get('SHAREDCLOUD_PASSWORD')
 
 
 # Logged out
@@ -18,6 +12,17 @@ def test_user_get_validation_error_when_deleting_an_account_while_being_logged_o
 
 # Missing fields
 def test_user_get_validation_error_when_deleting_an_account_with_missing_uuid():
+    email, username, password = TestUtils.generate_credentials()
+
+    r = TestUtils.create_account(
+        email=email,
+        username=username,
+        password=password
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    account_uuid = TestUtils.extract_uuid(r.output)
+
     r = TestUtils.login(username, password)
     assert r.exit_code == 0
 
@@ -25,8 +30,11 @@ def test_user_get_validation_error_when_deleting_an_account_with_missing_uuid():
     assert r.exit_code == 2
     assert 'Missing option "--uuid"' in r.output
 
-    r = TestUtils.logout()
+    r = TestUtils.delete_account(
+        uuid=account_uuid
+    )
     assert r.exit_code == 0
+    assert 'was deleted' in r.output
 
 
 # Invalid Fields

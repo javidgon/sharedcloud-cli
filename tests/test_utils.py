@@ -1,9 +1,50 @@
 import os
+import random
 import re
 
 from click.testing import CliRunner
 
 from sharedcloud import cli1, _read_token, function, run, instance, job, account
+
+
+def _accountSetUp():
+    email, username, password = TestUtils.generate_credentials()
+
+    r = TestUtils.create_account(
+        email=email,
+        username=username,
+        password=password
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    account_uuid = TestUtils.extract_uuid(r.output)
+
+    r = TestUtils.login(username, password)
+    assert r.exit_code == 0
+    return email, username, password, account_uuid
+
+def _accountWithSpecialPowersSetUp(user_id):
+    email, username, password = TestUtils.generate_credentials()
+
+    r = TestUtils.create_account(
+        email='runs_master{}@example.com'.format(user_id),
+        username=username,
+        password=password
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    account_uuid = TestUtils.extract_uuid(r.output)
+
+    r = TestUtils.login(username, password)
+    assert r.exit_code == 0
+    return email, username, password, account_uuid
+
+def _accountTearDown(account_uuid):
+    r = TestUtils.delete_account(
+        uuid=account_uuid
+    )
+    assert r.exit_code == 0
+    assert 'was deleted' in r.output
 
 
 class Config():
@@ -91,6 +132,7 @@ class TestUtils:
 
         columns = ['UUID', 'EMAIL', 'USERNAME', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN']
         r = cls.list_account()
+        print(r.exit_code, r.output)
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output
@@ -326,10 +368,8 @@ class TestUtils:
     def check_list_jobs_output(cls,
                   expected_status=None,
                   expected_num_jobs=None,
-                  expected_output=None,
-                  expected_response=None
     ):
-        columns = ['UUID', 'ID', 'STATUS', 'FUNCTION_OUTPUT', 'FUNCTION_RESPONSE', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME']
+        columns = ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME']
         r = cls.list_jobs()
         assert r.exit_code == 0
         for column in columns:
@@ -338,7 +378,6 @@ class TestUtils:
         rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
 
         num_rows = len(rows)
-
         if expected_num_jobs:
             assert num_rows == expected_num_jobs
 
@@ -347,12 +386,6 @@ class TestUtils:
 
             if expected_status:
                 assert expected_status[inverse_order] in row
-
-            if expected_output:
-                assert expected_output[inverse_order] in row
-
-            if expected_response:
-                assert expected_response[inverse_order] in row
 
         return r
 
@@ -476,3 +509,16 @@ class TestUtils:
         with open(filepath, 'r') as f:
             output = f.read()
         return output
+
+    @classmethod
+    def generate_random_seed(cls):
+        return str(random.randint(1, 10000000))
+
+    @classmethod
+    def generate_credentials(cls):
+        seed = cls.generate_random_seed()
+        username = '{}'.format(seed)
+        email = '{}@example.com'.format(seed)
+        password = '{}blablabla'.format(seed)
+
+        return email, username, password

@@ -1,10 +1,4 @@
-import os
-
 from tests.test_utils import TestUtils
-
-
-username = os.environ.get('SHAREDCLOUD_USERNAME')
-password = os.environ.get('SHAREDCLOUD_PASSWORD')
 
 
 # Logged out

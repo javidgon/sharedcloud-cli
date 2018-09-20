@@ -61,9 +61,9 @@ jobs:
       - run:
           name: run backend tests
           command: |
-            sleep 13
+            sleep 16
             . venv/bin/activate
-            nosetests
+            nosetests -v --nocapture tests/test_workflows.py
 
       - store_artifacts:
           path: test-reports
