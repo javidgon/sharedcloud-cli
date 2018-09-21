@@ -63,7 +63,7 @@ jobs:
           command: |
             sleep 16
             . venv/bin/activate
-            nosetests -v --nocapture tests/test_workflows.py
+            nosetests -v --nocapture
 
       - store_artifacts:
           path: test-reports

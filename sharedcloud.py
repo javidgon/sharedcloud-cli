@@ -15,10 +15,13 @@ from tabulate import tabulate
 from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
-SHAREDCLOUD_CLI_URL = os.environ.get('SHAREDCLOUD_CLI_URL', 'https://sharedcloud.io')
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
-CLIENT_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('CLIENT_CONFIG_FILENAME', 'client_config'))
-INSTANCE_CONFIG_FILE = '{}/{}'.format(DATA_FOLDER, os.environ.get('INSTANCE_CONFIG_FILENAME', 'instance_config'))
+
+SHAREDCLOUD_CLI_URL = os.environ.get('SHAREDCLOUD_CLI_URL', 'https://sharedcloud.io')
+SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME = '{}/{}'.format(DATA_FOLDER, os.environ.get(
+    'SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME', 'client_config'))
+SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME = '{}/{}'.format(DATA_FOLDER, os.environ.get(
+    'SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME', 'instance_config'))
 
 JOB_STATUSES = {
     'CREATED': 1,
@@ -36,15 +39,15 @@ INSTANCE_STATUSES = {
 # Utils
 
 def _read_token():
-    if not os.path.exists(CLIENT_CONFIG_FILE):
+    if not os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
         return None
-    with open(CLIENT_CONFIG_FILE, 'r') as f:
+    with open(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME, 'r') as f:
         token = f.read()
     return token
 
 
 def _read_instance_uuid():
-    with open(INSTANCE_CONFIG_FILE, 'r') as f:
+    with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'r') as f:
         uuid = f.read()
     return uuid
 
@@ -90,11 +93,23 @@ def _list_resource(url, token, headers, keys, mappers=None):
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
-        # This is required to accommodate the cases where we get from the remote a dict, not a list
         resources = r.json()
         click.echo(tabulate(
             [[_get_data(resource, key, token) for key in keys] for resource in resources],
             headers=headers))
+    else:
+        click.echo(r.content)
+        exit(1)
+
+    return r
+
+
+def _show_field_value(url, token, field_name):
+    r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
+
+    if r.status_code == 200:
+        resource = r.json()
+        click.echo(resource.get(field_name))
     else:
         click.echo(r.content)
         exit(1)
@@ -188,7 +203,7 @@ def _validate_file(ctx, param, file):
 
 
 def _validate_uuid(ctx, param, uuid):
-    if not uuid and not os.path.exists(INSTANCE_CONFIG_FILE):
+    if not uuid and not os.path.exists(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME):
         raise click.BadParameter('This machine doesn\'t seem to contain an instance. If you still want to refer to one that you own, you need to provide the UUID')
 
     return uuid
@@ -210,7 +225,7 @@ def cli1(config):
     config.token = _read_token()
 
 
-@cli1.group(help='Create/Delete/ListAccount Information')
+@cli1.group(help='Create/Update/Delete/List Account details')
 @pass_obj
 def account(config):
     pass
@@ -292,7 +307,7 @@ def _login(username, password):
 
     if r.status_code == 200:
         result = r.json()
-        with open(CLIENT_CONFIG_FILE, 'w+') as f:
+        with open(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME, 'w+') as f:
             f.write(result.get('token'))
     else:
         click.echo(r.content)
@@ -308,8 +323,8 @@ def login(username, password):
 
 
 def _logout():
-    if os.path.exists(CLIENT_CONFIG_FILE):
-        os.remove(CLIENT_CONFIG_FILE)
+    if os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
+        os.remove(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME)
     else:
         click.echo('You were already logged out.')
         exit(1)
@@ -394,7 +409,6 @@ def list(config):
                    ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN'],
                    ['uuid', 'name', 'runtime', 'num_runs', 'created_at'],
                    mappers={
-                       'code': _map_code_to_reduced_version,
                        'created_at': _map_datetime_obj_to_human_representation
                    })
 
@@ -408,6 +422,12 @@ def delete(config, uuid):
         'uuid': uuid
     })
 
+@function.command(help='Display the Functions\'s code')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_obj
+def code(config, uuid):
+    _show_field_value(
+        '{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'code')
 
 @cli1.group(help='Create/List Runs')
 @pass_obj
@@ -470,6 +490,44 @@ def list(config):
                        'created_at': _map_datetime_obj_to_human_representation
                    })
 
+@job.command(help='Display the Job\'s build logs')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_obj
+def logs(config, uuid):
+    _show_field_value(
+        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'build_logs')
+
+
+@job.command(help='Display the Job\'s result')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_obj
+def result(config, uuid):
+    _show_field_value(
+        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'function_result')
+
+
+@job.command(help='Display the Job\'s stdout')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_obj
+def stdout(config, uuid):
+    _show_field_value(
+        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'function_stdout')
+
+
+@job.command(help='List Jobs')
+@pass_obj
+def list(config):
+    _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
+                   config.token,
+                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['uuid', 'incremental_id', 'status', 'cost', 'duration', 'created_at', 'run', 'function_name'],
+                   mappers={
+                       'cost': _map_cost_number_to_version_with_currency,
+                       'duration': _map_duration_to_readable_version,
+                       'status': _map_job_status_to_description,
+                       'created_at': _map_datetime_obj_to_human_representation
+                   })
+
 
 @cli1.group(help='Create/Update/Start/List Instances')
 @pass_obj
@@ -495,7 +553,7 @@ def create(config, name, price_per_hour, max_num_parallel_jobs):
     })
     if r.status_code == 201:
         instance = r.json()
-        with open(INSTANCE_CONFIG_FILE, 'w') as f:
+        with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'w') as f:
             f.write(instance.get('uuid'))
 
 
@@ -540,17 +598,15 @@ def delete(config, uuid):
     })
 
     if r.status_code == 204:
-        if os.path.exists(INSTANCE_CONFIG_FILE):
-            os.remove(INSTANCE_CONFIG_FILE)
+        if os.path.exists(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME):
+            os.remove(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME)
 
 
 @instance.command(help='Starts an Instance')
 @click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
-
+@click.option('--job_timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
-def start(config, uuid):
-    # TODO: Make this asynchronous. Meaning that while it's processing a Job it can
-    # also take new ones without the need to open a new terminal
+def start(config, uuid, job_timeout):
     class ObjectNotFoundException(Exception):
         pass
 
@@ -578,74 +634,68 @@ def start(config, uuid):
 
     def _generate_image(job_uuid, job_folder):
         # TODO: This output should probably be sent to us to analyse it. e.g., docker build errors
-        build_output = b''
+        build_logs = b''
         image_tag = job_uuid
 
         docker_build = check_output(
             ['docker', 'build', '-t', '{}:latest'.format(image_tag),
              '-f', '{}/{}/Dockerfile'.format(DATA_FOLDER, job_uuid), job_folder])
         for line in docker_build.splitlines():
-            build_output += line + b'\n'
-        return image_tag, build_output
+            build_logs += line + b'\n'
+        return image_tag, build_logs
 
     def _run_container(image_tag):
-        function_output = b''
-        function_response = b''
+        function_stdout = b''
+        function_result = b''
         container_name = image_tag
         has_timeout = False
         has_failed = False
         def _extract_output(output):
-            function_output = b''
-            function_response = b''
+            function_stdout = b''
+            function_result = b''
             for line in output.splitlines():
                 if 'ResponseHandler' in str(line):
                     start = str(line).find('|') - 1
                     end = str(line).find('?') - 2
-                    function_response = line[start:end]
+                    function_result = line[start:end]
                 else:
-                    function_output += line + b'\n'
+                    function_stdout += line + b'\n'
 
-            return function_output, function_response
+            return function_stdout, function_result
 
-        try:
-            p = subprocess.Popen(
-                ['docker', 'run', '--memory=1024m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output, error = p.communicate()
-            function_output, function_response = _extract_output(output + b'\n' + error)
-            if error:
-                has_failed = True
-        except CalledProcessError as grepexc:
-            if grepexc.returncode == 124:
-                has_timeout = True
-            else:
-                raise
+        p = subprocess.Popen(
+            ['docker', 'run', '--memory=1024m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+        function_stdout, function_result = _extract_output(output + b'\n' + error)
+        if error:
+            has_failed = True
 
-        return container_name, function_output, function_response, has_timeout, has_failed
+        return container_name, function_stdout, function_result, has_failed
 
-    def _destroy_container(container_name, build_output):
+    def _destroy_container(container_name, build_logs):
         try:
             docker_destroy_container = check_output(
                 ['docker', 'rm', container_name, '--force'])
             for line in docker_destroy_container.splitlines():
-                build_output += line + b'\n'
+                build_logs += line + b'\n'
         except CalledProcessError as rmpexc:
             # It's fine if it fails as the container probably doesn't exist
             pass
 
-        return build_output
+        return build_logs
 
-    def _destroy_image(image_tag, build_output):
+    def _destroy_image(image_tag, build_logs):
         try:
             docker_destroy_image = check_output(
                 ['docker', 'rmi', image_tag, '--force'])
             for line in docker_destroy_image.splitlines():
-                build_output += line + b'\n'
+                build_logs += line + b'\n'
         except CalledProcessError as rmipexc:
             # It's fine if it fails as the image probably doesn't exist
             pass
 
-        return build_output
+        return build_logs
 
     def _exit_if_docker_daemon_is_not_running():
         try:
@@ -654,36 +704,36 @@ def start(config, uuid):
         except CalledProcessError as pgrepexc:
             exit('Is the Docker daemon running in your machine?')
 
-    def _report_failure(job_uuid, function_output, function_response, build_output):
+    def _report_failure(job_uuid, function_stdout, function_result, build_logs):
         _send_job_results(
             job_uuid, {
-                "build_output": build_output,
-                "function_output": function_output,
-                "function_response": function_response,
+                "build_logs": build_logs,
+                "function_stdout": function_stdout,
+                "function_result": function_result,
                 "status": JOB_STATUSES['FAILED']
             }, config.token)
 
-    def _report_success(job_uuid, function_output, function_response, build_output):
+    def _report_success(job_uuid, function_stdout, function_result, build_logs):
         _send_job_results(
             job_uuid, {
-                "build_output": build_output,
-                "function_output": function_output,
-                "function_response": function_response,
+                "build_logs": build_logs,
+                "function_stdout": function_stdout,
+                "function_result": function_result,
                 "status": JOB_STATUSES['SUCCEEDED']
             }, config.token)
 
-    def _report_timeout(job_uuid, function_output, function_response, build_output):
+    def _report_timeout(job_uuid, function_stdout, function_result, build_logs):
         _send_job_results(
             job_uuid, {
-                "build_output": build_output,
-                "function_output": function_output,
-                "function_response": function_response,
+                "build_logs": build_logs,
+                "function_stdout": function_stdout,
+                "function_result": function_result,
                 "status": JOB_STATUSES['TIMEOUT']
             }, config.token)
 
     def _job_loop(
             config, job_uuid, job_folder, job_dockerfile, job_wrapped_code,
-            build_output, function_output, function_response):
+            build_logs, function_stdout, function_result):
         # We update the job in the remote, so it doesn't get assigned to other instances
         _send_job_results(
             job_uuid, {
@@ -708,26 +758,20 @@ def start(config, uuid):
         container_name = None
         image_tag = None
 
-        image_tag, build_output = _generate_image(job_uuid, job_folder)
+        image_tag, build_logs = _generate_image(job_uuid, job_folder)
         # After the image has been generated, we run our container and calculate our result
-        container_name, function_output, function_response, has_timeout, has_failed = _run_container(image_tag)
+        container_name, function_stdout, function_result, has_failed = _run_container(image_tag)
         if has_failed:
-            _report_failure(job_uuid, function_output, function_response, build_output)
-        elif has_timeout:
-            _report_timeout(job_uuid, function_output, function_response, build_output)
+            _report_failure(job_uuid, function_stdout, function_result, build_logs)
         else:
-           _report_success(job_uuid, function_output, function_response, build_output)
+           _report_success(job_uuid, function_stdout, function_result, build_logs)
 
         # After this has been done, we make sure to clean up the image, container and job folder
         if container_name:
-            build_output = _destroy_container(container_name, build_output)
-        # TODO: Think about this, maybe we don't want to destroy the image
-        # if image_tag:
-        #     build_output = _destroy_image(image_tag, build_output)
+            build_logs = _destroy_container(container_name, build_logs)
         shutil.rmtree(job_folder)
 
         p = psutil.Process(os.getpid())
-        p.terminate()
 
     instance_uuid = uuid
 
@@ -736,9 +780,9 @@ def start(config, uuid):
     # sharedcloud instance start --uuid <uuid>
 
     job_uuid = None
-    build_output = b''
-    function_output = b''
-    function_response = b''
+    build_logs = b''
+    function_stdout = b''
+    function_result = b''
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
@@ -765,11 +809,15 @@ def start(config, uuid):
                 job_wrapped_code = job.get('wrapped_code')
 
                 processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(config, job_uuid, job_folder, job_dockerfile, job_wrapped_code,
-                          build_output, function_output, function_response))
+                          build_logs, function_stdout, function_result))
                 processes[job_uuid].start()
 
             for idx, process in processes.items():
-                process.join()
+                process.join(job_timeout)  # 30 minutes as timeout
+
+                if process.is_alive():
+                    _report_timeout(job_uuid, function_stdout, function_result, build_logs)
+                    process.terminate()
 
             if num_jobs > 0:
                 click.echo('All jobs were completed!')

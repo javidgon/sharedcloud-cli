@@ -24,10 +24,10 @@ def _accountSetUp():
     return email, username, password, account_uuid
 
 def _accountWithSpecialPowersSetUp(user_id):
-    email, username, password = TestUtils.generate_credentials()
-
+    _, username, password = TestUtils.generate_credentials()
+    email = 'runs_master{}@example.com'.format(user_id)
     r = TestUtils.create_account(
-        email='runs_master{}@example.com'.format(user_id),
+        email=email,
         username=username,
         password=password
     )
@@ -127,30 +127,32 @@ class TestUtils:
             cls,
             expected_email=None,
             expected_username=None,
-            expected_balance=None
+            expected_balance_is_zero=None
     ):
 
         columns = ['UUID', 'EMAIL', 'USERNAME', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN']
         r = cls.list_account()
-        print(r.exit_code, r.output)
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output
 
         rows = r.output.split('\n')[2:-1]
-
         num_rows = len(rows)
 
         for idx, row in enumerate(rows):
             inverse_idx = num_rows - (idx + 1)
+            fields = [field for field in row.split('  ') if field]
+
             if expected_email:
-                assert expected_email[inverse_idx] in row
+                assert expected_email[inverse_idx] in fields[columns.index('EMAIL')]
 
             if expected_username:
-                assert expected_username[inverse_idx] in row
+                assert expected_username[inverse_idx] in fields[columns.index('USERNAME')]
 
-            if expected_balance:
-                assert expected_balance[inverse_idx] in row
+            if expected_balance_is_zero:
+                assert fields[columns.index('BALANCE')] == '$0.0'
+            else:
+                assert fields[columns.index('BALANCE')] != '$0.0'
 
         return r
 
@@ -209,17 +211,19 @@ class TestUtils:
         # we check the expectations in the opposite order
         for idx, row in enumerate(rows):
             inverse_idx = num_rows-(idx+1)
+            fields = [field for field in row.split('  ') if field]
+
             if expected_uuid:
-                assert expected_uuid[inverse_idx] in row
+                assert expected_uuid[inverse_idx] in  fields[columns.index('UUID')]
 
             if expected_name:
-                assert expected_name[inverse_idx] in row
+                assert expected_name[inverse_idx] in  fields[columns.index('NAME')]
 
             if expected_runtime:
-                assert expected_runtime[inverse_idx] in row
+                assert expected_runtime[inverse_idx] in fields[columns.index('RUNTIME')]
 
             if expected_num_runs:
-                assert expected_num_runs[inverse_idx] in row
+                assert expected_num_runs[inverse_idx] in fields[columns.index('NUM_RUNS')]
 
         return r
 
@@ -285,6 +289,16 @@ class TestUtils:
             args.append(uuid)
         return cls.runner.invoke(function, args, obj=config)
 
+    @classmethod
+    def get_code_for_function(cls, uuid):
+        config = Config(token=_read_token())
+        args = ['code']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+
+        return cls.runner.invoke(function, args, obj=config)
 
     # Runs
     @classmethod
@@ -316,15 +330,16 @@ class TestUtils:
 
         for idx, row in enumerate(rows):
             inverse_order = num_rows-(idx+1)
+            fields = [field for field in row.split('  ') if field]
 
             if expected_uuid:
-                assert expected_uuid[inverse_order] in row
+                assert expected_uuid[inverse_order] in fields[columns.index('UUID')]
 
             if expected_parameters:
-                assert expected_parameters[inverse_order] in row
+                assert expected_parameters[inverse_order] in fields[columns.index('PARAMETERS')]
 
             if expected_function_name:
-                assert expected_function_name[inverse_order] in row
+                assert expected_function_name[inverse_order] in fields[columns.index('FUNCTION_NAME')]
 
         return r
 
@@ -365,6 +380,39 @@ class TestUtils:
         ], obj=config)
 
     @classmethod
+    def get_logs_for_job(cls, uuid):
+        config = Config(token=_read_token())
+        args = ['logs']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+
+        return cls.runner.invoke(job, args, obj=config)
+
+    @classmethod
+    def get_result_for_job(cls, uuid):
+        config = Config(token=_read_token())
+        args = ['result']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+
+        return cls.runner.invoke(job, args, obj=config)
+
+    @classmethod
+    def get_stdout_for_job(cls, uuid):
+        config = Config(token=_read_token())
+        args = ['stdout']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+
+        return cls.runner.invoke(job, args, obj=config)
+
+    @classmethod
     def check_list_jobs_output(cls,
                   expected_status=None,
                   expected_num_jobs=None,
@@ -375,20 +423,21 @@ class TestUtils:
         for column in columns:
             assert column in r.output
 
+        job_uuids = []
         rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
-
         num_rows = len(rows)
         if expected_num_jobs:
             assert num_rows == expected_num_jobs
 
         for idx, row in enumerate(rows):
+            job_uuids.append(cls.extract_uuid(row))
             inverse_order = num_rows-(idx+1)
+            fields = [field for field in row.split('  ') if field]
 
             if expected_status:
-                assert expected_status[inverse_order] in row
+                assert expected_status[inverse_order] in fields[columns.index('STATUS')]
 
-        return r
-
+        return r, job_uuids
 
     # Instances
     @classmethod
@@ -418,24 +467,25 @@ class TestUtils:
 
         for idx, row in enumerate(rows):
             inverse_order = num_rows-(idx+1)
+            fields = [field for field in row.split('  ') if field]
 
             if expected_uuid:
-                assert expected_uuid[inverse_order] in row
+                assert expected_uuid[inverse_order] in fields[columns.index('UUID')]
 
             if expected_name:
-                assert expected_name[inverse_order] in row
+                assert expected_name[inverse_order] in fields[columns.index('NAME')]
 
             if expected_status:
-                assert expected_status[inverse_order] in row
+                assert expected_status[inverse_order] in fields[columns.index('STATUS')]
 
             if expected_price_per_hour:
-                assert expected_price_per_hour[inverse_order] in row
+                assert expected_price_per_hour[inverse_order] in fields[columns.index('PRICE_PER_HOUR')]
 
             if expected_num_running_jobs:
-                assert expected_num_running_jobs[inverse_order] in row
+                assert expected_num_running_jobs[inverse_order] in fields[columns.index('NUM_RUNNING_JOBS')]
 
             if expected_max_num_parallel_jobs:
-                assert expected_max_num_parallel_jobs[inverse_order] in row
+                assert expected_max_num_parallel_jobs[inverse_order] in fields[columns.index('MAX_NUM_PARALLEL_JOBS')]
 
         return r
 
@@ -494,13 +544,16 @@ class TestUtils:
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
-    def start_instance(cls, uuid=None):
+    def start_instance(cls, uuid=None, job_timeout=None):
         config = Config(token=_read_token())
         args =['start']
 
         if uuid:
             args.append('--uuid')
             args.append(uuid)
+        if job_timeout:
+            args.append('--job_timeout')
+            args.append(job_timeout)
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
