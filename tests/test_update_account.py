@@ -30,3 +30,4 @@ def test_user_get_validation_error_when_updating_an_account_with_missing_uuid():
 
 
 # Invalid Fields
+test_user_get_validation_error_when_updating_an_account_while_being_logged_out()

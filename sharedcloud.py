@@ -12,7 +12,6 @@ import shutil
 import timeago
 from click import pass_obj
 from tabulate import tabulate
-from subprocess import check_output, CalledProcessError
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
@@ -37,6 +36,9 @@ INSTANCE_STATUSES = {
 }
 
 # Utils
+
+class ObjectNotFoundException(Exception):
+    pass
 
 def _read_token():
     if not os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
@@ -81,7 +83,6 @@ def _create_resource(url, token, data):
         click.echo(r.content)
         exit(1)
     return r
-
 
 def _list_resource(url, token, headers, keys, mappers=None):
     def _get_data(resource, key, token):
@@ -148,6 +149,20 @@ def _delete_resource(url, token, data):
     else:
         click.echo(r.content)
         exit(1)
+    return r
+
+
+def _perform_instance_action(action, instance_uuid, token, data=None):
+    if not data:
+        data = {}
+
+    r = requests.patch('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
+                     data=data, headers={'Authorization': 'Token {}'.format(token)})
+
+    if r.status_code == 404:
+        raise ObjectNotFoundException()
+    elif r.status_code != 200:
+        raise Exception(r.content)
     return r
 
 # Mappers
@@ -237,7 +252,6 @@ def account(config):
 @pass_obj
 def create(config, email, username, password):
     # sharedcloud account create --email blabla@example.com--username blabla --password password
-    # TODO: It's automatically logged in
     _create_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL), None, {
         'email': email,
         'username': username,
@@ -245,7 +259,7 @@ def create(config, email, username, password):
     })
     click.echo('')
     click.echo('Welcome aboard! Why you just don\'t start by creating a function?')
-    click.echo('>>> sharedcloud function create --name helloWorld --runtime python36 --code "def handler(event): print(\'HelloWorld\')"')
+    click.echo('>>> sharedcloud function create --name helloWorld --image <image_uuid> --code "def handler(event): print(\'HelloWorld\')"')
     click.echo('')
 
 
@@ -257,7 +271,7 @@ def create(config, email, username, password):
 @pass_obj
 def update(config, uuid, email, username, password):
     # sharedcloud account update --email blabla@example.com--username blabla --password password
-    _exit_if_user_is_logged_out(config.token)
+    _exit_if_user_is_logged_out(config.token if config else None)
 
     _update_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
@@ -336,6 +350,63 @@ def logout():
     _logout()
 
 
+@cli1.group(help='List/Clean/Download Images')
+@pass_obj
+def image(config):
+    _exit_if_user_is_logged_out(config.token)
+
+@image.command(help='List Images')
+@pass_obj
+def list(config):
+    # sharedcloud image list"
+    _list_resource('{}/api/v1/images/'.format(SHAREDCLOUD_CLI_URL),
+                   config.token,
+                   ['UUID', 'NAME', 'RUNTIME', 'TAG', 'REGISTRY_PATH', 'DESCRIPTION', 'NUM_INSTALLATIONS', 'WHEN'],
+                   ['uuid','name', 'runtime', 'tag', 'registry_path', 'description', 'num_installations', 'created_at'],
+                   mappers={
+                       'created_at': _map_datetime_obj_to_human_representation
+                   })
+
+@image.command(help='Clean Image from the system')
+@click.option('--instance_uuid', required=True, type=click.UUID)
+@click.option('--registry_path', required=True)
+@pass_obj
+def clean(config, instance_uuid, registry_path):
+    # sharedcloud image clean --instance_uuid <uuid> --registry_path <image>
+    p = subprocess.Popen(
+        ['docker', 'rmi', '-f', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = p.communicate()
+
+    if error:
+        for line in error.splitlines():
+            click.echo(line + b'\n')
+    else:
+        _perform_instance_action('delete_image', instance_uuid, config.token, data={
+            'image_registry_path': registry_path
+        })
+        for line in output.splitlines():
+            click.echo(line + b'\n')
+
+@image.command(help='Download Image')
+@click.option('--instance_uuid', required=True, type=click.UUID)
+@click.option('--registry_path', required=True)
+@pass_obj
+def download(config, instance_uuid, registry_path):
+    # sharedcloud image download --instance_uuid <uuid> --registry_path <image>
+    p = subprocess.Popen(
+        ['docker', 'pull', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = p.communicate()
+
+    if error:
+        for line in error.splitlines():
+            click.echo(line + b'\n')
+    else:
+        _perform_instance_action('add_image', instance_uuid, config.token, data={
+            'image_registry_path': registry_path
+        })
+        for line in output.splitlines():
+            click.echo(line + b'\n')
+
 @cli1.group(help='Create/Delete/Update/List Functions')
 @pass_obj
 def function(config):
@@ -344,13 +415,13 @@ def function(config):
 
 @function.command(help='Creates a new Function')
 @click.option('--name', required=True)
-@click.option('--runtime', required=True, type=click.Choice(['python27', 'python36', 'node8']))
+@click.option('--image_uuid', required=True, type=click.UUID)
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
 @click.option('--code', required=False, callback=_validate_code)
 @pass_obj
-def create(config, name, runtime, file, code):
-    # sharedcloud function create --name mything --runtime python36 --code "def handler(event): return 2"
-    # sharedcloud function create --name mything --runtime python36 --file "file.py"
+def create(config, name, image_uuid, file, code):
+    # sharedcloud function create --name mything --image_uuid <uuid> --code "def handler(event): return 2"
+    # sharedcloud function create --name mything --image_uuid <uuid> --file "file.py"
     if file:
         code = ''
         while True:
@@ -361,7 +432,7 @@ def create(config, name, runtime, file, code):
 
     r = _create_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
-        'runtime': runtime,
+        'image': image_uuid,
         'code': code
     })
     resource = r.json()
@@ -377,13 +448,13 @@ def create(config, name, runtime, file, code):
 @function.command(help='Update a Function')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--name', required=False)
-@click.option('--runtime', required=False, type=click.Choice(['python27', 'python36', 'node8']))
+@click.option('--image_uuid', required=False, type=click.UUID)
 @click.option('--file', required=False, type=click.File())
 @click.option('--code', required=False)
 @pass_obj
-def update(config, uuid, name, runtime, file, code):
-    # sharedcloud function update --uuid <uuid> --name mything --runtime python36 --code "import sys; print(sys.argv)"
-    # sharedcloud function update  --uuid <uuid> --name mything --runtime python36 --file "file.py"
+def update(config, uuid, name, image_uuid, file, code):
+    # sharedcloud function update --uuid <uuid> --name mything --image_uuid <uuid> --code "import sys; print(sys.argv)"
+    # sharedcloud function update  --uuid <uuid> --name mything --image_uuid <uuid> --file "file.py"
     if file:
         code = ''
         while True:
@@ -395,7 +466,7 @@ def update(config, uuid, name, runtime, file, code):
     _update_resource('{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
-        'runtime': runtime,
+        'image': image_uuid,
         'code': code
     })
 
@@ -406,8 +477,8 @@ def list(config):
     # sharedcloud function list"
     _list_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN'],
-                   ['uuid', 'name', 'runtime', 'num_runs', 'created_at'],
+                   ['UUID', 'NAME', 'IMAGE', 'NUM_RUNS', 'WHEN'],
+                   ['uuid', 'name', 'registry_path', 'num_runs', 'created_at'],
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
                    })
@@ -463,7 +534,7 @@ def list(config):
     # sharedcloud function list"
     _list_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION_NAME'],
+                   ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION'],
                    ['uuid', 'parameters', 'created_at', 'function_name'],
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
@@ -481,7 +552,7 @@ def job(config):
 def list(config):
     _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION'],
                    ['uuid', 'incremental_id', 'status', 'cost', 'duration', 'created_at', 'run', 'function_name'],
                    mappers={
                        'cost': _map_cost_number_to_version_with_currency,
@@ -519,7 +590,7 @@ def stdout(config, uuid):
 def list(config):
     _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME'],
+                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION'],
                    ['uuid', 'incremental_id', 'status', 'cost', 'duration', 'created_at', 'run', 'function_name'],
                    mappers={
                        'cost': _map_cost_number_to_version_with_currency,
@@ -607,17 +678,6 @@ def delete(config, uuid):
 @click.option('--job_timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
 def start(config, uuid, job_timeout):
-    class ObjectNotFoundException(Exception):
-        pass
-
-    def _perform_instance_action(action, instance_uuid, token):
-        r = requests.patch('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
-                         data={}, headers={'Authorization': 'Token {}'.format(token)})
-        if r.status_code == 404:
-            raise ObjectNotFoundException()
-        elif r.status_code != 200:
-            raise Exception(r.content)
-        return r
 
     def _send_job_results(job_uuid, data, token):
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
@@ -632,23 +692,22 @@ def start(config, uuid, job_timeout):
         with open(to_file, 'w') as text_file:
             text_file.write(data)
 
-    def _generate_image(job_uuid, job_folder):
+    def _pull_image(job_image_path):
         # TODO: This output should probably be sent to us to analyse it. e.g., docker build errors
         build_logs = b''
-        image_tag = job_uuid
 
-        docker_build = check_output(
-            ['docker', 'build', '-t', '{}:latest'.format(image_tag),
-             '-f', '{}/{}/Dockerfile'.format(DATA_FOLDER, job_uuid), job_folder])
-        for line in docker_build.splitlines():
+        p = subprocess.Popen(
+            ['docker', 'pull', job_image_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        for line in (output + b'\n' + error).splitlines():
             build_logs += line + b'\n'
-        return image_tag, build_logs
+        return build_logs
 
-    def _run_container(image_tag):
+    def _run_container(job_uuid, job_folder, job_image_path):
         function_stdout = b''
         function_result = b''
-        container_name = image_tag
-        has_timeout = False
+        container_name = job_uuid
         has_failed = False
         def _extract_output(output):
             function_stdout = b''
@@ -664,44 +723,61 @@ def start(config, uuid, job_timeout):
             return function_stdout, function_result
 
         p = subprocess.Popen(
-            ['docker', 'run', '--memory=1024m', '--cpus=1', '--name', container_name, '{}:latest'.format(image_tag)],
+            ['docker', 'run', '--memory=1024m', '--cpus=1', '--name',
+             container_name, '-v', '{}:/data/'.format(job_folder), job_image_path],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
-        function_stdout, function_result = _extract_output(output + b'\n' + error)
         if error:
             has_failed = True
+            function_stdout, _ = _extract_output(output + b'\n' + error)
+        else:
+            function_stdout, function_result = _extract_output(output)
 
         return container_name, function_stdout, function_result, has_failed
 
     def _destroy_container(container_name, build_logs):
-        try:
-            docker_destroy_container = check_output(
-                ['docker', 'rm', container_name, '--force'])
-            for line in docker_destroy_container.splitlines():
-                build_logs += line + b'\n'
-        except CalledProcessError as rmpexc:
-            # It's fine if it fails as the container probably doesn't exist
-            pass
+        p = subprocess.Popen(
+            ['docker', 'rm', container_name, '--force'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        for line in (output + b'\n' + error).splitlines():
+            build_logs += line + b'\n'
 
         return build_logs
 
     def _destroy_image(image_tag, build_logs):
-        try:
-            docker_destroy_image = check_output(
-                ['docker', 'rmi', image_tag, '--force'])
-            for line in docker_destroy_image.splitlines():
-                build_logs += line + b'\n'
-        except CalledProcessError as rmipexc:
-            # It's fine if it fails as the image probably doesn't exist
-            pass
+        p = subprocess.Popen(
+            ['docker', 'rmi', image_tag, '--force'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        for line in (output + b'\n' + error).splitlines():
+            build_logs += line + b'\n'
 
         return build_logs
 
+    def _update_images(token):
+        r = requests.get(
+            '{}/api/v1/images/?instance={}'.format(SHAREDCLOUD_CLI_URL, instance_uuid),
+            headers={'Authorization': 'Token {}'.format(token)})
+
+        if r.status_code == 200:
+            images = r.json()
+
+            for image in images:
+                p = subprocess.Popen(
+                    ['docker', 'pull', image.get('registry_path')], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output, error = p.communicate()
+
+                for line in (output + b'\n' + error).splitlines():
+                    print(line + b'\n')
+
+
     def _exit_if_docker_daemon_is_not_running():
-        try:
-            check_output(
-                ['docker', 'ps'])
-        except CalledProcessError as pgrepexc:
+        p = subprocess.Popen(
+            ['docker', 'ps'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = p.communicate()
+
+        if error:
             exit('Is the Docker daemon running in your machine?')
 
     def _report_failure(job_uuid, function_stdout, function_result, build_logs):
@@ -732,7 +808,7 @@ def start(config, uuid, job_timeout):
             }, config.token)
 
     def _job_loop(
-            config, job_uuid, job_folder, job_dockerfile, job_wrapped_code,
+            config, job_uuid, job_folder, job_image_registry_path, job_wrapped_code,
             build_logs, function_stdout, function_result):
         # We update the job in the remote, so it doesn't get assigned to other instances
         _send_job_results(
@@ -749,29 +825,27 @@ def start(config, uuid, job_timeout):
         # Here we create an empty job folder
         os.makedirs(job_folder)
 
-        # Here we create files from the received Dockerfile and Code
-        _create_file_from_data(job_dockerfile, '{}/Dockerfile'.format(job_folder))
+        # Here we create the file from the received Code
         _create_file_from_data(job_wrapped_code, '{}/file'.format(job_folder))
 
         # After the files have been created, we can generate the image that we are going to
         # use to run our container
         container_name = None
-        image_tag = None
 
-        image_tag, build_logs = _generate_image(job_uuid, job_folder)
+        build_logs = _pull_image(job_image_registry_path)
+
         # After the image has been generated, we run our container and calculate our result
-        container_name, function_stdout, function_result, has_failed = _run_container(image_tag)
+        container_name, function_stdout, function_result, has_failed = _run_container(
+            job_uuid, job_folder, job_image_registry_path)
         if has_failed:
             _report_failure(job_uuid, function_stdout, function_result, build_logs)
         else:
-           _report_success(job_uuid, function_stdout, function_result, build_logs)
+            _report_success(job_uuid, function_stdout, function_result, build_logs)
 
         # After this has been done, we make sure to clean up the image, container and job folder
         if container_name:
             build_logs = _destroy_container(container_name, build_logs)
         shutil.rmtree(job_folder)
-
-        p = psutil.Process(os.getpid())
 
     instance_uuid = uuid
 
@@ -786,6 +860,9 @@ def start(config, uuid, job_timeout):
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
+        click.echo('Updating images...')
+        _update_images(config.token)
+
         click.echo('Ready to take Jobs...')
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
@@ -805,10 +882,11 @@ def start(config, uuid, job_timeout):
                 click.echo('Starting Job {}...'.format(job_uuid))
 
                 job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
-                job_dockerfile = job.get('dockerfile')
+                job_image_registry_path = job.get('image_registry_path')
                 job_wrapped_code = job.get('wrapped_code')
 
-                processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(config, job_uuid, job_folder, job_dockerfile, job_wrapped_code,
+                processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
+                    config, job_uuid, job_folder, job_image_registry_path, job_wrapped_code,
                           build_logs, function_stdout, function_result))
                 processes[job_uuid].start()
 
@@ -830,8 +908,9 @@ def start(config, uuid, job_timeout):
 
     except ObjectNotFoundException as e:
         click.echo('Not found Instance with UUID {}'.format(instance_uuid))
-
+        exit(1)
     except (Exception, KeyboardInterrupt) as e:
+        click.echo(e)
         click.echo('Instance {} has just stopped!'.format(instance_uuid))
         _perform_instance_action('stop', instance_uuid, config.token)
         exit(1)

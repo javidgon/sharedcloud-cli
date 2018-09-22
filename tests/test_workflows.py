@@ -5,6 +5,45 @@ import time
 from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown, _accountWithSpecialPowersSetUp
 
 
+def test_user_wants_to_download_and_clean_an_image():
+    # 1) Create an account and login into the system
+    email, username, password, account_uuid = _accountSetUp()
+
+    # 2) Create instance
+    instance_name = TestUtils.generate_random_seed()
+
+    r = TestUtils.create_instance(
+        name=instance_name,
+        price_per_hour=1.5,
+        max_num_parallel_jobs=2
+    )
+    assert r.exit_code == 0
+    assert 'has been created' in r.output
+    instance_uuid = TestUtils.extract_uuid(r.output)
+
+    # 3) Download Image
+    r = TestUtils.download_image(
+        instance_uuid=instance_uuid,
+        registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Pulling from sharedcloud/web-crawling-python36' in r.output
+
+    # 4) Clean Image
+    r = TestUtils.clean_image(
+        instance_uuid=instance_uuid,
+        registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Untagged: sharedcloud/web-crawling-python36' in r.output
+    assert 'Deleted' in r.output
+
+    # 5) Delete Instance
+    r = TestUtils.delete_instance(uuid=instance_uuid)
+    assert r.exit_code == 0
+    assert 'was deleted' in r.output
+
+    # 6) Delete account
+    _accountTearDown(account_uuid)
+
 def test_user_wants_to_see_his_account_information():
     # 1) Create an account and login into the system
     email, username, password, account_uuid = _accountSetUp()
@@ -95,15 +134,24 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     )
 
     code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
-    runtime = 'python36'
     parameters = '((1,), (2,))'
 
     # 3) Create a function to execute (by providing the code inline)
     function_name = TestUtils.generate_random_seed()
+    r, uuids = TestUtils.check_list_images_output(
+        expected_name=['standard', 'web-crawling', 'web-crawling'],
+        expected_runtime=['node8', 'python27', 'python36'],
+        expected_description=[
+            'An image with standard libraries',
+            'An image with web crawling libraries',
+            'An image with web crawling libraries',
+        ],
+        expected_num_images=3
+    )
     r = TestUtils.create_function(
         name=function_name,
         code=code,
-        runtime=runtime
+        image_uuid=uuids[0]  # We take the first image (inverse order)
     )
     assert r.exit_code == 0
     assert 'has been created' in r.output
@@ -150,7 +198,6 @@ def test_user_tries_to_change_his_password_but_his_password_is_too_weak():
 
 def test_customer_performs_a_complete_workflow_with_code():
     code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
-    runtime = 'python36'
     parameters = '((1,), (2,))'
 
     # 1) Create account with special powers (doesn't need money)
@@ -159,10 +206,21 @@ def test_customer_performs_a_complete_workflow_with_code():
     # 2) Create a function to execute (by providing the code inline)
     function_name = TestUtils.generate_random_seed()
 
+    r, uuids = TestUtils.check_list_images_output(
+        expected_name=['standard', 'web-crawling', 'web-crawling'],
+        expected_runtime=['node8', 'python27', 'python36'],
+        expected_description=[
+            'An image with standard libraries',
+            'An image with web crawling libraries',
+            'An image with web crawling libraries',
+        ],
+        expected_num_images=3
+    )
+
     r = TestUtils.create_function(
         name=function_name,
         code=code,
-        runtime=runtime
+        image_uuid=uuids[0]  # We take the first image (inverse order)
     )
     assert r.exit_code == 0
     assert 'has been created' in r.output
@@ -181,7 +239,7 @@ def test_customer_performs_a_complete_workflow_with_code():
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
         expected_name=[function_name],
-        expected_runtime=runtime,
+        expected_image=['sharedcloud/web-crawling-python36:latest'],
         expected_num_runs=['1'],
         expected_num_functions=1
     )
@@ -194,7 +252,7 @@ def test_customer_performs_a_complete_workflow_with_code():
     TestUtils.check_list_runs_output(
         expected_uuid=[run_uuid],
         expected_parameters=[parameters],
-        expected_function_name=[function_name],
+        expected_function=[function_name],
         expected_num_runs=1
     )
 
@@ -216,6 +274,7 @@ def test_customer_performs_a_complete_workflow_with_code():
         uuid=function_uuid,
         name=new_function_name
     )
+    print(r.output)
     assert r.exit_code == 0
     assert 'was updated' in r.output
     function_uuid = TestUtils.extract_uuid(r.output)
@@ -224,7 +283,7 @@ def test_customer_performs_a_complete_workflow_with_code():
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
         expected_name=[new_function_name],
-        expected_runtime=runtime,
+        expected_image=['sharedcloud/web-crawling-python36:latest'],
         expected_num_runs=['0'],
         expected_num_functions=1
     )
@@ -239,8 +298,7 @@ def test_customer_performs_a_complete_workflow_with_code():
 
 
 def test_customer_performs_a_complete_workflow_with_file():
-    filepath = os.path.dirname(os.path.abspath(__file__)) + '/../examples/testing_func_python36.py'
-    runtime = 'python36'
+    filepath = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
     parameters = '((1,), (2,))'
 
     # 1) Create account with special powers (doesn't need money)
@@ -248,10 +306,21 @@ def test_customer_performs_a_complete_workflow_with_file():
 
     # 2) Create a function to execute (by providing the filepath)
     function_name = TestUtils.generate_random_seed()
+    r, uuids = TestUtils.check_list_images_output(
+        expected_name=['standard', 'web-crawling', 'web-crawling'],
+        expected_runtime=['node8', 'python27', 'python36'],
+        expected_description=[
+            'An image with standard libraries',
+            'An image with web crawling libraries',
+            'An image with web crawling libraries',
+        ],
+        expected_num_images=3
+    )
+
     r = TestUtils.create_function(
         name=function_name,
         file=filepath,
-        runtime=runtime
+        image_uuid=uuids[0]  # We take the first image (inverse order)
     )
 
     assert r.exit_code == 0
@@ -271,7 +340,7 @@ def test_customer_performs_a_complete_workflow_with_file():
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
         expected_name=[function_name],
-        expected_runtime=runtime,
+        expected_image=['sharedcloud/web-crawling-python36:latest'],
         expected_num_runs=['1'],
         expected_num_functions=1
     )
@@ -280,7 +349,7 @@ def test_customer_performs_a_complete_workflow_with_file():
     TestUtils.check_list_runs_output(
         expected_uuid=[run_uuid],
         expected_parameters=[parameters],
-        expected_function_name=[function_name],
+        expected_function=[function_name],
         expected_num_runs=1
     )
 
@@ -310,7 +379,7 @@ def test_customer_performs_a_complete_workflow_with_file():
     TestUtils.check_list_functions_output(
         expected_uuid=[function_uuid],
         expected_name=[new_function_name],
-        expected_runtime=runtime,
+        expected_image=['sharedcloud/web-crawling-python36:latest'],
         expected_num_runs=['0'],
         expected_num_functions=1
     )
@@ -325,8 +394,7 @@ def test_customer_performs_a_complete_workflow_with_file():
 
 
 def test_provider_performs_complete_workflow_with_jobs_that_succeed():
-    code = 'def handler(event): print("Hello World {}".format(event[0])); return 42'
-    runtime = 'python36'
+    filepath = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
     parameters = '((1,),(2,),(3,))'
 
     # 1) Create account with special powers (doesn't need money)
@@ -334,11 +402,21 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
 
     # 2) Create a function to execute (by providing the code inline)
     function_name = TestUtils.generate_random_seed()
+    r, uuids = TestUtils.check_list_images_output(
+        expected_name=['standard', 'web-crawling', 'web-crawling'],
+        expected_runtime=['node8', 'python27', 'python36'],
+        expected_description=[
+            'An image with standard libraries',
+            'An image with web crawling libraries',
+            'An image with web crawling libraries',
+        ],
+        expected_num_images=3
+    )
 
     r = TestUtils.create_function(
         name=function_name,
-        code=code,
-        runtime=runtime
+        file=filepath,
+        image_uuid=uuids[0]  # We take the first image (inverse order)
     )
 
     assert r.exit_code == 0
@@ -365,6 +443,11 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     assert r.exit_code == 0
     assert 'has been created' in r.output
     instance_uuid = TestUtils.extract_uuid(r.output)
+
+    # 4b) Download Image
+    r = TestUtils.download_image(instance_uuid=instance_uuid, registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Pulling from sharedcloud/web-crawling-python36' in r.output
 
     # 5) List the instance we just created
     TestUtils.check_list_instances_output(
@@ -406,8 +489,8 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     })
     p.start()
 
-    # Wait 10 seconds for start_instance to start and set some jobs to "IN_PROGRESS"
-    time.sleep(10)
+    # Wait 5 seconds for start_instance to start and set some jobs to "IN_PROGRESS"
+    time.sleep(5)
     TestUtils.check_list_jobs_output(
         expected_status=['IN_PROGRESS', 'IN_PROGRESS', 'CREATED'],
         expected_num_jobs = 3
@@ -435,7 +518,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     assert 'Please wait until they are finished' in r.output
 
     # We wait until the process has finished
-    p.join(240.0)  # 4 minutes of timeout
+    p.join(30.0)  # 30 seconds of timeout
     p.terminate()
 
     # 9) List the jobs that were generated by the run. We check that the jobs were processed successfully
@@ -455,7 +538,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
 
         r = TestUtils.get_logs_for_job(uuid)
         assert r.exit_code == 0
-        assert 'Successfully built' in r.output
+        assert 'Pulling' in r.output
 
     # 10) Check balance
     TestUtils.check_account_output(
@@ -469,7 +552,12 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
     assert r.exit_code == 0
     assert 'was deleted' in r.output
 
-    # 11) Also the instance we created
+    # 11) Also the instance we created (and the image we downloaded)
+    r = TestUtils.clean_image(instance_uuid=instance_uuid, registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Untagged: sharedcloud/web-crawling-python36' in r.output
+    assert 'Deleted' in r.output
+
     r = TestUtils.delete_instance(uuid=instance_uuid)
     assert r.exit_code == 0
     assert 'was deleted' in r.output
@@ -479,8 +567,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_succeed():
 
 
 def test_provider_performs_complete_workflow_with_jobs_that_timeout():
-    code = 'def handler(event): print "Hello World {}".format(event[0]); return 42'
-    runtime = 'python27'
+    filepath = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
     parameters = '((1,),)'
     # 1) Create account with special powers (doesn't need money)
     email, username, password, account_uuid = _accountWithSpecialPowersSetUp(4)
@@ -488,10 +575,21 @@ def test_provider_performs_complete_workflow_with_jobs_that_timeout():
     # 2) Create a function to execute (by providing the code inline)
     function_name = TestUtils.generate_random_seed()
 
+    r, uuids = TestUtils.check_list_images_output(
+        expected_name=['standard', 'web-crawling', 'web-crawling'],
+        expected_runtime=['node8', 'python27', 'python36'],
+        expected_description=[
+            'An image with standard libraries',
+            'An image with web crawling libraries',
+            'An image with web crawling libraries',
+        ],
+        expected_num_images=3
+    )
+
     r = TestUtils.create_function(
         name=function_name,
-        code=code,
-        runtime=runtime
+        file=filepath,
+        image_uuid=uuids[0]  # We take the image in the middle
     )
 
     assert r.exit_code == 0
@@ -518,6 +616,11 @@ def test_provider_performs_complete_workflow_with_jobs_that_timeout():
     assert r.exit_code == 0
     assert 'has been created' in r.output
     instance_uuid = TestUtils.extract_uuid(r.output)
+
+    # 4b) Download Image
+    r = TestUtils.download_image(instance_uuid=instance_uuid, registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Pulling from sharedcloud/web-crawling-python36' in r.output
 
     # 5) List the instance we just created
     TestUtils.check_list_instances_output(
@@ -555,17 +658,16 @@ def test_provider_performs_complete_workflow_with_jobs_that_timeout():
     )
     # 8) Start the instance so it starts listening from tasks.
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={
-        'uuid': instance_uuid, 'job_timeout': 20.0
+        'uuid': instance_uuid, 'job_timeout': 7.0
     })
     p.start()
 
-    # Wait 10 seconds for start_instance to start and set some jobs to "IN_PROGRESS"
-    time.sleep(10)
+    # Wait 5 seconds for start_instance to start and set some jobs to "IN_PROGRESS"
+    time.sleep(5)
     TestUtils.check_list_jobs_output(
         expected_status=['IN_PROGRESS'],
         expected_num_jobs = 1
     )
-
     TestUtils.check_list_instances_output(
         expected_uuid=[instance_uuid],
         expected_name=[new_instance_name],
@@ -588,7 +690,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_timeout():
     assert 'Please wait until they are finished' in r.output
 
     # We wait until the process has finished
-    p.join(60.0)  # 1 minute of timeout
+    p.join(30.0)  # 30 seconds of timeout
     p.terminate()
 
     # 9) List the jobs that were generated by the run. We check that the jobs were processed successfully
@@ -609,7 +711,12 @@ def test_provider_performs_complete_workflow_with_jobs_that_timeout():
     assert r.exit_code == 0
     assert 'was deleted' in r.output
 
-    # 11) Also the instance we created
+    # 11) Also the instance we created (and the image we downloaded)
+    r = TestUtils.clean_image(instance_uuid=instance_uuid, registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Untagged: sharedcloud/web-crawling-python36' in r.output
+    assert 'Deleted' in r.output
+
     r = TestUtils.delete_instance(uuid=instance_uuid)
     assert r.exit_code == 0
     assert 'was deleted' in r.output
@@ -619,8 +726,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_timeout():
 
 
 def test_provider_performs_complete_workflow_with_jobs_that_fail():
-    code = 'function handler(event){console.log(Hello World " + event[0]); return 42 + parseInt(event[1]);'
-    runtime = 'node8'
+    filepath = os.path.dirname(os.path.abspath(__file__)) + '/files/invalid_func_python36.py'
     parameters = '((1,),)'
 
     # 1) Create account with special powers (doesn't need money)
@@ -629,10 +735,21 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     # 2) Create a function to execute (by providing the code inline)
     function_name = TestUtils.generate_random_seed()
 
+    r, uuids = TestUtils.check_list_images_output(
+        expected_name=['standard', 'web-crawling', 'web-crawling'],
+        expected_runtime=['node8', 'python27', 'python36'],
+        expected_description=[
+            'An image with standard libraries',
+            'An image with web crawling libraries',
+            'An image with web crawling libraries',
+        ],
+        expected_num_images=3
+    )
+
     r = TestUtils.create_function(
         name=function_name,
-        code=code,
-        runtime=runtime
+        file=filepath,
+        image_uuid=uuids[0]  # We take the last image (inverse order)
     )
 
     assert r.exit_code == 0
@@ -659,6 +776,11 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     assert r.exit_code == 0
     assert 'has been created' in r.output
     instance_uuid = TestUtils.extract_uuid(r.output)
+
+    # 4b) Download Image
+    r = TestUtils.download_image(instance_uuid=instance_uuid, registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Pulling from sharedcloud/web-crawling-python36' in r.output
 
     # 5) List the instance we just created
     TestUtils.check_list_instances_output(
@@ -729,7 +851,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     assert 'Please wait until they are finished' in r.output
 
     # We wait until the process has finished
-    p.join(240.0)  # 4 minutes of timeout
+    p.join(30.0)  # 30 seconds of timeout
     p.terminate()
 
     # 9) List the jobs that were generated by the run. We check that the jobs were processed successfully
@@ -741,7 +863,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     for uuid in uuids:
         r = TestUtils.get_stdout_for_job(uuid)
         assert r.exit_code == 0
-        assert 'SyntaxError: missing ) after argument list' in r.output
+        assert 'This is a test Exception' in r.output
 
         r = TestUtils.get_result_for_job(uuid)
         assert r.exit_code == 0
@@ -749,7 +871,7 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
 
         r = TestUtils.get_logs_for_job(uuid)
         assert r.exit_code == 0
-        assert 'Successfully built' in r.output
+        assert 'Pulling' in r.output
 
     # 10) Check balance
     TestUtils.check_account_output(
@@ -763,7 +885,12 @@ def test_provider_performs_complete_workflow_with_jobs_that_fail():
     assert r.exit_code == 0
     assert 'was deleted' in r.output
 
-    # 11) Also the instance we created
+    # 11) Also the instance we created (and the image we downloaded)
+    r = TestUtils.clean_image(instance_uuid=instance_uuid, registry_path='sharedcloud/web-crawling-python36:latest')
+    assert r.exit_code == 0
+    assert 'Untagged: sharedcloud/web-crawling-python36' in r.output
+    assert 'Deleted' in r.output
+
     r = TestUtils.delete_instance(uuid=instance_uuid)
     assert r.exit_code == 0
     assert 'was deleted' in r.output

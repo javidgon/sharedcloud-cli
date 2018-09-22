@@ -29,7 +29,7 @@ def test_user_get_validation_error_when_starting_an_instance_with_invalid_uuid()
     r = TestUtils.start_instance(
         uuid='4c3d399e-ec67-47a1-82e4-b979e534f3d9'
     )
-    assert r.exit_code == 0
-    assert 'Not found Instance' in r.output
+    assert r.exit_code == 1
+    assert 'Not found' in r.output
 
     _accountTearDown(account_uuid)

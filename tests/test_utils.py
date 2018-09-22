@@ -4,7 +4,7 @@ import re
 
 from click.testing import CliRunner
 
-from sharedcloud import cli1, _read_token, function, run, instance, job, account
+from sharedcloud import cli1, _read_token, function, run, instance, job, account, image
 
 
 def _accountSetUp():
@@ -190,12 +190,13 @@ class TestUtils:
             cls,
             expected_uuid=None,
             expected_name=None,
-            expected_runtime=None,
+            expected_image=None,
             expected_num_runs=None,
             expected_num_functions=None
     ):
-        columns = ['UUID', 'NAME', 'RUNTIME', 'NUM_RUNS', 'WHEN']
+        columns = ['UUID', 'NAME', 'IMAGE', 'NUM_RUNS', 'WHEN']
         r = cls.list_functions()
+        print(r.output)
         assert r.exit_code == 0
         for column in columns:
             assert column in r.output
@@ -214,13 +215,14 @@ class TestUtils:
             fields = [field for field in row.split('  ') if field]
 
             if expected_uuid:
-                assert expected_uuid[inverse_idx] in  fields[columns.index('UUID')]
+                assert expected_uuid[inverse_idx] in fields[columns.index('UUID')]
 
             if expected_name:
-                assert expected_name[inverse_idx] in  fields[columns.index('NAME')]
+                assert expected_name[inverse_idx] in fields[columns.index('NAME')]
 
-            if expected_runtime:
-                assert expected_runtime[inverse_idx] in fields[columns.index('RUNTIME')]
+            if expected_image:
+                print(expected_image[inverse_idx], fields[columns.index('IMAGE')])
+                assert expected_image[inverse_idx] in fields[columns.index('IMAGE')]
 
             if expected_num_runs:
                 assert expected_num_runs[inverse_idx] in fields[columns.index('NUM_RUNS')]
@@ -232,7 +234,7 @@ class TestUtils:
     def create_function(
             cls,
             name=None,
-            runtime=None,
+            image_uuid=None,
             code=None,
             file=None):
         config = Config(token=_read_token())
@@ -241,9 +243,9 @@ class TestUtils:
         if name:
             args.append('--name')
             args.append(name)
-        if runtime:
-            args.append('--runtime')
-            args.append(runtime)
+        if image_uuid:
+            args.append('--image_uuid')
+            args.append(image_uuid)
         if code:
             args.append('--code')
             args.append(code)
@@ -256,7 +258,7 @@ class TestUtils:
     def update_function(cls,
                         uuid=None,
                         name=None,
-                        runtime=None,
+                        image_uuid=None,
                         code=None,
                         file=None):
         config = Config(token=_read_token())
@@ -268,9 +270,9 @@ class TestUtils:
         if name:
             args.append('--name')
             args.append(name)
-        if runtime:
-            args.append('--runtime')
-            args.append(runtime)
+        if image_uuid:
+            args.append('--image_uuid')
+            args.append(image_uuid)
         if code:
             args.append('--code')
             args.append(code)
@@ -300,6 +302,95 @@ class TestUtils:
 
         return cls.runner.invoke(function, args, obj=config)
 
+    # Images
+    @classmethod
+    def list_images(cls):
+        config = Config(token=_read_token())
+        return cls.runner.invoke(image, [
+            'list',
+        ], obj=config)
+
+    @classmethod
+    def download_image(cls,
+        instance_uuid=None,
+        registry_path=None):
+        config = Config(token=_read_token())
+        args = ['download']
+
+        if instance_uuid:
+            args.append('--instance_uuid')
+            args.append(instance_uuid)
+        if registry_path:
+            args.append('--registry_path')
+            args.append(registry_path)
+
+        return cls.runner.invoke(image, args, obj=config)
+
+    @classmethod
+    def clean_image(cls,
+        instance_uuid=None,
+        registry_path=None):
+        config = Config(token=_read_token())
+        args = ['clean']
+
+        if instance_uuid:
+            args.append('--instance_uuid')
+            args.append(instance_uuid)
+        if registry_path:
+            args.append('--registry_path')
+            args.append(registry_path)
+
+        return cls.runner.invoke(image, args, obj=config)
+
+    @classmethod
+    def check_list_images_output(
+        cls,
+        expected_name=None,
+        expected_runtime=None,
+        expected_tag=None,
+        expected_registry_path=None,
+        expected_description=None,
+        expected_num_installations=None,
+        expected_num_images=None
+    ):
+        columns = ['UUID', 'NAME', 'RUNTIME', 'TAG', 'REGISTRY_PATH', 'DESCRIPTION',  'NUM_INSTALLATIONS', 'WHEN']
+        r = cls.list_images()
+        assert r.exit_code == 0
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+        num_rows = len(rows)
+        image_uuids = []
+        if expected_num_images:
+            assert num_rows == expected_num_images
+
+        for idx, row in enumerate(rows):
+            image_uuids.append(cls.extract_uuid(row))
+
+            inverse_order = num_rows-(idx+1)
+            fields = [field for field in row.split('  ') if field]
+
+            if expected_name:
+                assert expected_name[inverse_order] in fields[columns.index('NAME')]
+
+            if expected_runtime:
+                assert expected_runtime[inverse_order] in fields[columns.index('RUNTIME')]
+
+            if expected_tag:
+                assert expected_tag[inverse_order] in fields[columns.index('TAG')]
+
+            if expected_registry_path:
+                assert expected_registry_path[inverse_order] in fields[columns.index('REGISTRY_PATH')]
+
+            if expected_description:
+                assert expected_description[inverse_order] in fields[columns.index('DESCRIPTION')]
+
+            if expected_num_installations:
+                assert expected_num_installations[inverse_order] in fields[columns.index('NUM_INSTALLATIONS')]
+
+        return r, image_uuids
+
     # Runs
     @classmethod
     def list_runs(cls):
@@ -312,10 +403,10 @@ class TestUtils:
     def check_list_runs_output(cls,
                   expected_uuid=None,
                   expected_parameters=None,
-                  expected_function_name=None,
+                  expected_function=None,
                   expected_num_runs=None
     ):
-        columns = ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION_NAME']
+        columns = ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION']
         r = cls.list_runs()
         assert r.exit_code == 0
         for column in columns:
@@ -338,8 +429,8 @@ class TestUtils:
             if expected_parameters:
                 assert expected_parameters[inverse_order] in fields[columns.index('PARAMETERS')]
 
-            if expected_function_name:
-                assert expected_function_name[inverse_order] in fields[columns.index('FUNCTION_NAME')]
+            if expected_function:
+                assert expected_function[inverse_order] in fields[columns.index('FUNCTION')]
 
         return r
 
@@ -417,7 +508,7 @@ class TestUtils:
                   expected_status=None,
                   expected_num_jobs=None,
     ):
-        columns = ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION_NAME']
+        columns = ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION']
         r = cls.list_jobs()
         assert r.exit_code == 0
         for column in columns:
