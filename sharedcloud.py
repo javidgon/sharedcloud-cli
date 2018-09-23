@@ -723,7 +723,7 @@ def start(config, uuid, job_timeout):
             return function_stdout, function_result
 
         p = subprocess.Popen(
-            ['docker', 'run', '--memory=1024m', '--cpus=1', '--name',
+            ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
              container_name, '-v', '{}:/data/'.format(job_folder), job_image_path],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
@@ -734,26 +734,6 @@ def start(config, uuid, job_timeout):
             function_stdout, function_result = _extract_output(output)
 
         return container_name, function_stdout, function_result, has_failed
-
-    def _destroy_container(container_name, build_logs):
-        p = subprocess.Popen(
-            ['docker', 'rm', container_name, '--force'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
-
-        for line in (output + b'\n' + error).splitlines():
-            build_logs += line + b'\n'
-
-        return build_logs
-
-    def _destroy_image(image_tag, build_logs):
-        p = subprocess.Popen(
-            ['docker', 'rmi', image_tag, '--force'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
-
-        for line in (output + b'\n' + error).splitlines():
-            build_logs += line + b'\n'
-
-        return build_logs
 
     def _update_images(token):
         r = requests.get(
@@ -842,9 +822,7 @@ def start(config, uuid, job_timeout):
         else:
             _report_success(job_uuid, function_stdout, function_result, build_logs)
 
-        # After this has been done, we make sure to clean up the image, container and job folder
-        if container_name:
-            build_logs = _destroy_container(container_name, build_logs)
+        # After this has been done, we make sure to clean up the job folder
         shutil.rmtree(job_folder)
 
     instance_uuid = uuid
