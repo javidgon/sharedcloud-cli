@@ -1,35 +1,97 @@
-from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown
+import os
 
+from tests.constants import Image, Message
+from tests.test_utils import TestUtils, TestWrapper
+
+
+# Workflow
+
+def test_user_creates_a_run_successfully():
+    parameter = '((1,),(2,))'
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+
+    account_uuid, email, username, password = TestWrapper.create_beta_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.check_account_output(
+        expected_email=[email],
+        expected_username=[username],
+        expected_balance_is_zero=True
+    )
+
+    function_uuid, function_name = TestWrapper.create_function_successfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
+
+    run_uuid = TestWrapper.create_run_successfully(
+        function_uuid=function_uuid, parameters=parameter)
+
+    TestWrapper.check_list_runs_output(
+        expected_uuid=[run_uuid],
+        expected_parameters=[parameter],
+        expected_function=[function_name],
+        expected_num_runs=1)
+
+    TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.check_account_output(
+        expected_email=[email],
+        expected_username=[username],
+        expected_balance_is_zero=True
+    )
+
+    function_uuid, function_name = TestWrapper.create_function_successfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
+
+    TestWrapper.create_run_unsuccessfully(
+        function_uuid=function_uuid, parameters='((1,),(2,))',
+        error_code=1, msg='you need a balance higher than 0 to create new runs')
+
+    TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 # Logged out
 def test_user_get_validation_error_when_creating_a_run_while_being_logged_out():
-    r = TestUtils.create_run(
-        parameters='((1,),(2,))'
-    )
+    parameter = '((1,),(2,))'
 
-    assert r.exit_code == 1
-    assert 'You seem to be logged out. Please log in first' in r.output
+    TestWrapper.create_run_unsuccessfully(
+        function_uuid=TestUtils.generate_random_seed(), parameters=parameter,
+        error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
+
 
 # Missing fields
 def test_user_get_validation_error_when_creating_a_run_with_missing_function_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    parameter = '((1,),(2,))'
 
-    r = TestUtils.create_run(
-        parameters='((1,),(2,))'
-    )
-    assert r.exit_code == 2
-    assert 'Missing option "--function_uuid"' in r.output
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    _accountTearDown(account_uuid)
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_run_unsuccessfully(
+        parameters=parameter,
+        error_code=2, msg='Missing option "--function_uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 
 def test_user_get_validation_error_when_creating_a_run_with_missing_parameters():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.create_run(
-        function_uuid='4c3d399e-ec67-47a1-82e4-b979e534f3d9',
-    )
-    assert r.exit_code == 2
-    assert 'Missing option "--parameters"' in r.output
+    TestWrapper.login_successfully(username=username, password=password)
 
-    _accountTearDown(account_uuid)
+    TestWrapper.create_run_unsuccessfully(
+        function_uuid=TestUtils.generate_uuid(),
+        error_code=2, msg='Missing option "--parameters"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)

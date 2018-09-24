@@ -1,30 +1,43 @@
-from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown
+from tests.constants import InstanceType, Message
+from tests.test_utils import TestUtils, TestWrapper
 
+
+# Workflow
+def test_delete_instance_successfully():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    instance_uuid, instance_name = TestWrapper.create_instance_successfully(
+        type=InstanceType.STANDARD, price_per_hour=1.5, max_num_parallel_jobs=3)
+
+    TestWrapper.delete_instance_successfully(uuid=instance_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 # Logged out
 def test_user_get_validation_error_when_deleting_an_instance_while_being_logged_out():
-    r = TestUtils.delete_instance()
-
-    assert r.exit_code == 1
-    assert 'You seem to be logged out. Please log in first' in r.output
+    TestWrapper.delete_instance_unsuccessfully(
+        uuid=TestUtils.generate_random_seed(), error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
 
 # Missing fields
 def test_user_get_validation_error_when_deleting_an_instance_with_missing_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.delete_instance()
-    assert r.exit_code == 2
-    assert 'Missing option "--uuid"' in r.output
+    TestWrapper.login_successfully(username=username, password=password)
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_instance_unsuccessfully(error_code=2, msg='Missing option "--uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 # Invalid Fields
 def test_user_get_validation_error_when_deleting_an_instance_with_invalid_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.delete_instance(
-        uuid='4c3d399e-ec67-47a1-82e4-b979e534f3d9')
-    assert r.exit_code == 1
-    assert 'Not found resource with UUID' in r.output
+    TestWrapper.login_successfully(username=username, password=password)
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_instance_unsuccessfully(
+        uuid=TestUtils.generate_random_seed(),
+        error_code=2, msg='Invalid value for "--uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)

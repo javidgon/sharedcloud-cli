@@ -35,6 +35,11 @@ INSTANCE_STATUSES = {
     'AVAILABLE': 2
 }
 
+INSTANCE_TYPES = {
+    'STANDARD': 1,
+    'GPU': 2
+}
+
 # Utils
 
 class ObjectNotFoundException(Exception):
@@ -49,6 +54,8 @@ def _read_token():
 
 
 def _read_instance_uuid():
+    if not os.path.exists(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME):
+        return None
     with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'r') as f:
         uuid = f.read()
     return uuid
@@ -58,6 +65,13 @@ def _exit_if_user_is_logged_out(token):
     if not token:
         click.echo('You seem to be logged out. Please log in first')
         exit(1)
+
+def _get_instance_uuid_or_exit_if_there_is_none():
+    instance_uuid = _read_instance_uuid()
+    if not instance_uuid:
+        click.echo('We couldn\'t find an instance in this computer')
+        exit(1)
+    return instance_uuid
 
 
 def _get_server_datetime(token):
@@ -183,6 +197,11 @@ def _map_instance_status_to_description(status, token):
         if id == status:
             return status_name
 
+def _map_instance_type_to_description(type, token):
+    for type_name, id in INSTANCE_TYPES.items():
+        if id == type:
+            return type_name
+
 def _map_code_to_reduced_version(code, token):
     if len(code) > 35:
         return code[:30] + '...'
@@ -271,7 +290,7 @@ def create(config, email, username, password):
 @pass_obj
 def update(config, uuid, email, username, password):
     # sharedcloud account update --email blabla@example.com--username blabla --password password
-    _exit_if_user_is_logged_out(config.token if config else None)
+    _exit_if_user_is_logged_out(config.token)
 
     _update_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
@@ -280,7 +299,7 @@ def update(config, uuid, email, username, password):
         'password': password
     })
 
-    _login(username, password)
+    _logout()
 
 
 @account.command(help='Deletes an Account')
@@ -338,6 +357,7 @@ def login(username, password):
 
 def _logout():
     if os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
+        click.echo('You have been logged out.')
         os.remove(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME)
     else:
         click.echo('You were already logged out.')
@@ -356,23 +376,32 @@ def image(config):
     _exit_if_user_is_logged_out(config.token)
 
 @image.command(help='List Images')
+@click.option('--only_downloaded', is_flag=True)
 @pass_obj
-def list(config):
+def list(config, only_downloaded):
     # sharedcloud image list"
-    _list_resource('{}/api/v1/images/'.format(SHAREDCLOUD_CLI_URL),
+
+    url = '{}/api/v1/images/'.format(SHAREDCLOUD_CLI_URL)
+    if only_downloaded:
+        instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+
+        url += '?instance={}'.format(instance_uuid)
+
+    _list_resource(url,
                    config.token,
-                   ['UUID', 'NAME', 'RUNTIME', 'TAG', 'REGISTRY_PATH', 'DESCRIPTION', 'NUM_INSTALLATIONS', 'WHEN'],
-                   ['uuid','name', 'runtime', 'tag', 'registry_path', 'description', 'num_installations', 'created_at'],
+                   ['UUID', 'REGISTRY_PATH', 'DESCRIPTION', 'REQUIRES_GPU', 'WHEN'],
+                   ['uuid', 'registry_path', 'description', 'requires_gpu', 'created_at'],
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
                    })
 
 @image.command(help='Clean Image from the system')
-@click.option('--instance_uuid', required=True, type=click.UUID)
-@click.option('--registry_path', required=True)
+@click.option('--registry_path', required=True, type=click.STRING)
 @pass_obj
-def clean(config, instance_uuid, registry_path):
-    # sharedcloud image clean --instance_uuid <uuid> --registry_path <image>
+def clean(config, registry_path):
+    # sharedcloud image clean --registry_path <image>
+    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+
     p = subprocess.Popen(
         ['docker', 'rmi', '-f', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = p.communicate()
@@ -380,6 +409,7 @@ def clean(config, instance_uuid, registry_path):
     if error:
         for line in error.splitlines():
             click.echo(line + b'\n')
+            exit(2)
     else:
         _perform_instance_action('delete_image', instance_uuid, config.token, data={
             'image_registry_path': registry_path
@@ -388,11 +418,12 @@ def clean(config, instance_uuid, registry_path):
             click.echo(line + b'\n')
 
 @image.command(help='Download Image')
-@click.option('--instance_uuid', required=True, type=click.UUID)
 @click.option('--registry_path', required=True)
 @pass_obj
-def download(config, instance_uuid, registry_path):
-    # sharedcloud image download --instance_uuid <uuid> --registry_path <image>
+def download(config, registry_path):
+    # sharedcloud image download --registry_path <image>
+    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+
     p = subprocess.Popen(
         ['docker', 'pull', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = p.communicate()
@@ -608,17 +639,19 @@ def instance(config):
 
 @instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
+@click.option('--type', required=True, type=click.Choice(['standard', 'gpu']))
 @click.option('--price_per_hour', required=True, type=click.FLOAT)
-@click.option('--max_num_parallel_jobs', required=True, type=click.INT)
+@click.option('--max_num_parallel_jobs', default=1, type=click.INT)
 @pass_obj
-def create(config, name, price_per_hour, max_num_parallel_jobs):
-    # sharedcloud instance create --name blabla --price_per_hour 2.0 --max_num_parallel_jobs 3
+def create(config, name, type, price_per_hour, max_num_parallel_jobs):
+    # sharedcloud instance create --name blabla --type standard --price_per_hour 2.0 --max_num_parallel_jobs 3
     # if os.path.exists(INSTANCE_CONFIG_FILE):
     #     click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
     #     exit(1)
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
+        'type': INSTANCE_TYPES[type.upper()],
         'price_per_hour': price_per_hour,
         'max_num_parallel_jobs': max_num_parallel_jobs,
     })
@@ -633,26 +666,29 @@ def create(config, name, price_per_hour, max_num_parallel_jobs):
 def list(config):
     _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'price_per_hour', 'num_running_jobs', 'max_num_parallel_jobs', 'last_connection'],
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION'],
+                   ['uuid', 'name', 'status', 'price_per_hour', 'type', 'num_running_jobs', 'max_num_parallel_jobs', 'last_connection'],
                    mappers={
                        'status': _map_instance_status_to_description,
+                       'type': _map_instance_type_to_description,
                        'last_connection': _map_datetime_obj_to_human_representation
                    })
 
 
 @instance.command(help='Update an Instance')
 @click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
+@click.option('--type', required=False, type=click.Choice(['standard', 'gpu']))
 @click.option('--name', required=False)
 @click.option('--price_per_hour', required=False, type=click.FLOAT)
 @click.option('--max_num_parallel_jobs', required=False, type=click.INT)
 @pass_obj
-def update(config, uuid, name, price_per_hour, max_num_parallel_jobs):
-    # sharedcloud instance update --name blabla --price_per_hour 2.0 --max_num_parallel_jobs 3
+def update(config, uuid, type, name, price_per_hour, max_num_parallel_jobs):
+    # sharedcloud instance update --name blabla --type standard --price_per_hour 2.0 --max_num_parallel_jobs 3
 
     _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
+        'type': INSTANCE_TYPES[type.upper()] if type else None,
         'price_per_hour': price_per_hour,
         'max_num_parallel_jobs': max_num_parallel_jobs,
     })
@@ -674,10 +710,9 @@ def delete(config, uuid):
 
 
 @instance.command(help='Starts an Instance')
-@click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
 @click.option('--job_timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
-def start(config, uuid, job_timeout):
+def start(config, job_timeout):
 
     def _send_job_results(job_uuid, data, token):
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
@@ -704,7 +739,7 @@ def start(config, uuid, job_timeout):
             build_logs += line + b'\n'
         return build_logs
 
-    def _run_container(job_uuid, job_folder, job_image_path):
+    def _run_container(job_uuid, job_folder, job_requires_gpu, job_image_path):
         function_stdout = b''
         function_result = b''
         container_name = job_uuid
@@ -722,10 +757,13 @@ def start(config, uuid, job_timeout):
 
             return function_stdout, function_result
 
-        p = subprocess.Popen(
-            ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
-             container_name, '-v', '{}:/data/'.format(job_folder), job_image_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
+             container_name, '-v', '{}:/data/'.format(job_folder), job_image_path]
+
+        if job_requires_gpu:
+            args.insert(2, '--runtime=nvidia')
+
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
         if error:
             has_failed = True
@@ -778,17 +816,14 @@ def start(config, uuid, job_timeout):
                 "status": JOB_STATUSES['SUCCEEDED']
             }, config.token)
 
-    def _report_timeout(job_uuid, function_stdout, function_result, build_logs):
+    def _report_timeout(job_uuid):
         _send_job_results(
             job_uuid, {
-                "build_logs": build_logs,
-                "function_stdout": function_stdout,
-                "function_result": function_result,
                 "status": JOB_STATUSES['TIMEOUT']
             }, config.token)
 
     def _job_loop(
-            config, job_uuid, job_folder, job_image_registry_path, job_wrapped_code,
+            config, job_uuid, job_folder, job_requires_gpu, job_image_registry_path, job_wrapped_code,
             build_logs, function_stdout, function_result):
         # We update the job in the remote, so it doesn't get assigned to other instances
         _send_job_results(
@@ -816,7 +851,7 @@ def start(config, uuid, job_timeout):
 
         # After the image has been generated, we run our container and calculate our result
         container_name, function_stdout, function_result, has_failed = _run_container(
-            job_uuid, job_folder, job_image_registry_path)
+            job_uuid, job_folder, job_requires_gpu, job_image_registry_path)
         if has_failed:
             _report_failure(job_uuid, function_stdout, function_result, build_logs)
         else:
@@ -825,7 +860,7 @@ def start(config, uuid, job_timeout):
         # After this has been done, we make sure to clean up the job folder
         shutil.rmtree(job_folder)
 
-    instance_uuid = uuid
+    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
     _exit_if_docker_daemon_is_not_running()
 
@@ -860,19 +895,22 @@ def start(config, uuid, job_timeout):
                 click.echo('Starting Job {}...'.format(job_uuid))
 
                 job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
+                job_requires_gpu = job.get('requires_gpu')
                 job_image_registry_path = job.get('image_registry_path')
                 job_wrapped_code = job.get('wrapped_code')
 
                 processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
-                    config, job_uuid, job_folder, job_image_registry_path, job_wrapped_code,
-                          build_logs, function_stdout, function_result))
-                processes[job_uuid].start()
+                   config, job_uuid, job_folder, job_requires_gpu, job_image_registry_path,
+                   job_wrapped_code, build_logs, function_stdout, function_result))
 
-            for idx, process in processes.items():
-                process.join(job_timeout)  # 30 minutes as timeout
+            for job_uuid, process in processes.items():
+                process.start()
+
+            for job_uuid, process in processes.items():
+                process.join(job_timeout)  # 30 minutes as default timeout
 
                 if process.is_alive():
-                    _report_timeout(job_uuid, function_stdout, function_result, build_logs)
+                    _report_timeout(job_uuid)
                     process.terminate()
 
             if num_jobs > 0:

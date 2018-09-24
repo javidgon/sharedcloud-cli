@@ -1,93 +1,130 @@
-from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown
+import os
+
+from tests.constants import Image, Message
+from tests.test_utils import TestWrapper, TestUtils
+
+
+# Workflow
+def test_user_creates_a_function_with_code_successfully():
+    code = 'def handler(event): print("Hello World {}".format(event[0])); return 42 + int(event[0])'
+
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    function_uuid, function_name = TestWrapper.create_function_successfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], code=code)
+
+    TestWrapper.check_list_functions_output(
+        expected_uuid=[function_uuid],
+        expected_name=[function_name],
+        expected_image=[Image.WEB_CRAWLING_PYTHON36['path']],
+        expected_num_runs=['0'],
+        expected_num_functions=1
+    )
+
+    TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+def test_user_creates_a_function_with_file_successfully():
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    function_uuid, function_name = TestWrapper.create_function_successfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
+
+    TestWrapper.check_list_functions_output(
+        expected_uuid=[function_uuid],
+        expected_name=[function_name],
+        expected_image=[Image.WEB_CRAWLING_PYTHON36['path']],
+        expected_num_runs=['0'],
+        expected_num_functions=1
+    )
+
+    TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 
 # Logged out
 def test_user_get_validation_error_when_creating_a_function_while_being_logged_out():
-    r = TestUtils.create_function(
-        image_uuid='e7e2e061-444d-41c4-8a74-fe137947dfa7',
-        code='blabla'
-    )
-    assert r.exit_code == 1
-    assert 'You seem to be logged out. Please log in first' in r.output
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+
+    TestWrapper.create_function_unsuccessfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file, error_code=1,
+        msg=Message.YOU_ARE_LOGOUT_WARNING)
+
 
 # Missing fields
 def test_user_get_validation_error_when_creating_a_function_with_missing_name():
-    email, username, password, account_uuid = _accountSetUp()
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
-    r = TestUtils.create_function(
-        image_uuid='e7e2e061-444d-41c4-8a74-fe137947dfa7',
-        code='blabla'
-    )
-    assert r.exit_code == 2
-    assert 'Missing option "--name"' in r.output
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    _accountTearDown(account_uuid)
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_function_unsuccessfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file, error_code=2,
+        msg='Missing option "--name"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 def test_user_get_validation_error_when_creating_a_function_with_missing_image_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
-    r = TestUtils.create_function(
-        name=account_uuid,
-        code='blabla'
-    )
-    assert r.exit_code == 2
-    assert 'Missing option "--image_uuid"' in r.output
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    _accountTearDown(account_uuid)
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_function_unsuccessfully(
+        name=TestUtils.generate_random_seed(), file=file, error_code=2,
+        msg='Missing option "--image_uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 def test_user_get_validation_error_when_creating_a_function_with_missing_both_code_and_file():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.create_function(
-        name=account_uuid,
-        image_uuid='e7e2e061-444d-41c4-8a74-fe137947dfa7'
-    )
-    assert r.exit_code == 2
-    assert 'Either "code" or "file" parameters need to be provided' in r.output
+    TestWrapper.login_successfully(username=username, password=password)
 
-    _accountTearDown(account_uuid)
+    TestWrapper.create_function_unsuccessfully(
+        name=TestUtils.generate_random_seed(), image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], error_code=2,
+        msg='Either "code" or "file" parameters need to be provided')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 # Invalid Fields
 def test_user_get_validation_error_when_creating_a_function_with_invalid_code():
-    email, username, password, account_uuid = _accountSetUp()
-    r, uuids = TestUtils.check_list_images_output(
-        expected_name=['standard', 'web-crawling', 'web-crawling'],
-        expected_runtime=['node8', 'python27', 'python36'],
-        expected_description=[
-            'An image with standard libraries',
-            'An image with web crawling libraries',
-            'An image with web crawling libraries',
-        ],
-        expected_num_installations=['0', '0', '0'],
-        expected_num_images=3
-    )
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
-    r = TestUtils.create_function(
-        name=account_uuid,
-        image_uuid=uuids[0],
-        code='blabla'
-    )
-    print(r.output)
-    assert r.exit_code == 1
-    assert 'needs to have the following signature' in r.output
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    _accountTearDown(account_uuid)
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_function_unsuccessfully(
+        name=TestUtils.generate_random_seed(), image_uuid=Image.STANDARD_NODE8['uuid'], file=file, error_code=1,
+        msg='needs to have the following signature')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 def test_user_get_validation_error_when_creating_a_function_with_invalid_image_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
-    r = TestUtils.create_function(
-        name=account_uuid,
-        image_uuid='blabla',
-        code='def handler(event): print(2)'
-    )
-    assert r.exit_code == 2
-    assert 'Invalid value for "--image_uuid":' in r.output
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    _accountTearDown(account_uuid)
+    TestWrapper.login_successfully(username=username, password=password)
 
-test_user_get_validation_error_when_creating_a_function_with_invalid_code()
+    TestWrapper.create_function_unsuccessfully(
+        name=TestUtils.generate_random_seed(), image_uuid='blabla', file=file, error_code=2,
+        msg='Invalid value for "--image_uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)

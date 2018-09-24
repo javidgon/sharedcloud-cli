@@ -1,32 +1,60 @@
-from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown
+import os
 
+from tests.constants import Image, Message
+from tests.test_utils import TestUtils, TestWrapper
+
+
+# Workflow
+def test_delete_run_successfully():
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+    parameter = '((1,),(2,))'
+
+    account_uuid, email, username, password = TestWrapper.create_beta_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    function_uuid, function_name = TestWrapper.create_function_successfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
+
+    run_uuid = TestWrapper.create_run_successfully(
+        function_uuid=function_uuid, parameters=parameter)
+
+    TestWrapper.check_list_runs_output(
+        expected_uuid=[run_uuid],
+        expected_parameters=[parameter],
+        expected_function=[function_name],
+        expected_num_runs=1)
+
+    TestWrapper.delete_run_successfully(uuid=run_uuid)
+
+    TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 # Logged out
 def test_user_get_validation_error_when_deleting_a_run_while_being_logged_out():
-    r = TestUtils.delete_run()
-
-    assert r.exit_code == 1
-    assert 'You seem to be logged out. Please log in first' in r.output
+    TestWrapper.delete_run_unsuccessfully(
+        uuid=TestUtils.generate_uuid(),
+        error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
 
 # Missing fields
 def test_user_get_validation_error_when_deleting_a_run_with_missing_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.delete_run()
-    assert r.exit_code == 2
-    assert 'Missing option "--uuid"' in r.output
+    TestWrapper.login_successfully(username=username, password=password)
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_run_unsuccessfully(error_code=2, msg='Missing option "--uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 # Invalid Fields
 def test_user_get_validation_error_when_deleting_a_run_with_invalid_uuid():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.delete_function(
-        uuid='4c3d399e-ec67-47a1-82e4-b979e534f3d9')
-    # TODO: Maybe here we should also raise an exit_code 2
-    assert r.exit_code == 1
-    assert 'Not found resource with UUID' in r.output
+    TestWrapper.login_successfully(username=username, password=password)
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_run_unsuccessfully(
+        uuid=TestUtils.generate_random_seed(), error_code=2, msg='Invalid value for "--uuid"')
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)

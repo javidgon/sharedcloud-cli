@@ -1,82 +1,167 @@
-from tests.test_utils import TestUtils, _accountSetUp, _accountTearDown
+from tests.constants import Message, InstanceType
+from tests.test_utils import TestUtils, TestWrapper
 
+
+# Workflow
+
+def test_user_creates_an_instance():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    instance_uuid, instance_name = TestWrapper.create_instance_successfully(
+        type=InstanceType.STANDARD,
+        price_per_hour=1.5,
+        max_num_parallel_jobs=3
+    )
+
+    TestWrapper.check_list_instances_output(
+        expected_uuid=[instance_uuid],
+        expected_name=[instance_name],
+        expected_status=['NOT_AVAILABLE'],
+        expected_price_per_hour=['1.5'],
+        expected_num_running_jobs=['0'],
+        expected_max_num_parallel_jobs=['3'],
+        expected_num_instances=1
+    )
+
+    TestWrapper.delete_instance_successfully(uuid=instance_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+def test_user_overrides_old_instance():
+    pass
 
 # Logged out
-def test_user_get_validation_error_when_creating_an_instance_while_being_logged_out():
-    r = TestUtils.create_instance(
+def test_user_gets_validation_error_when_creating_an_instance_while_being_logged_out():
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        type=InstanceType.STANDARD,
         price_per_hour=1.5,
-        max_num_parallel_jobs=5
+        max_num_parallel_jobs=3,
+        error_code=1,
+        msg=Message.YOU_ARE_LOGOUT_WARNING
     )
-    assert r.exit_code == 1
-    assert 'You seem to be logged out. Please log in first' in r.output
 
 # Missing fields
-def test_user_get_validation_error_when_creating_an_instance_with_missing_name():
-    email, username, password, account_uuid = _accountSetUp()
+def test_user_gets_validation_error_when_creating_an_instance_with_missing_name():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.create_instance(
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_instance_unsuccessfully(
+        type=InstanceType.STANDARD,
         price_per_hour=1.5,
-        max_num_parallel_jobs=5
+        max_num_parallel_jobs=3,
+        error_code=2,
+        msg='Missing option "--name"'
     )
-    assert r.exit_code == 2
-    assert 'Missing option "--name"' in r.output
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
-    _accountTearDown(account_uuid)
+def test_user_gets_validation_error_when_creating_an_instance_with_missing_type():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
+    TestWrapper.login_successfully(username=username, password=password)
 
-def test_user_get_validation_error_when_creating_an_instance_with_missing_price_per_hour():
-    email, username, password, account_uuid = _accountSetUp()
-
-    r = TestUtils.create_instance(
-        name=account_uuid,
-        max_num_parallel_jobs=5
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        price_per_hour=1.5,
+        max_num_parallel_jobs=3,
+        error_code=2,
+        msg='Missing option "--type"'
     )
-    assert r.exit_code == 2
-    assert 'Missing option "--price_per_hour"' in r.output
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
-def test_user_get_validation_error_when_creating_an_instance_with_missing_max_num_parallel_jobs():
-    email, username, password, account_uuid = _accountSetUp()
+def test_user_gets_validation_error_when_creating_an_instance_with_missing_price_per_hour():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.create_instance(
-        name=account_uuid,
-        price_per_hour=1.5
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        type=InstanceType.STANDARD,
+        max_num_parallel_jobs=3,
+        error_code=2,
+        msg='Missing option "--price_per_hour"'
     )
-    print(r.output)
-    assert r.exit_code == 2
-    assert 'Missing option "--max_num_parallel_jobs"' in r.output
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
+# Optional Fields with Default
+def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing_max_num_parallel_jobs():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    instance_uuid, instance_name = TestWrapper.create_instance_successfully(
+        type=InstanceType.STANDARD,
+        price_per_hour=1.5,
+    )
+
+    TestWrapper.check_list_instances_output(
+        expected_uuid=[instance_uuid],
+        expected_name=[instance_name],
+        expected_status=['NOT_AVAILABLE'],
+        expected_price_per_hour=['1.5'],
+        expected_num_running_jobs=['0'],
+        expected_max_num_parallel_jobs=['1'],
+        expected_num_instances=1
+    )
+
+    TestWrapper.delete_instance_successfully(uuid=instance_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 # Invalid Fields
-def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_per_hour():
-    email, username, password, account_uuid = _accountSetUp()
 
-    r = TestUtils.create_instance(
-        name=account_uuid,
-        price_per_hour='blabla',
-        max_num_parallel_jobs=5
+def test_user_get_validation_error_when_creating_an_instance_with_invalid_type():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        type='blabla',
+        price_per_hour=1.5,
+        max_num_parallel_jobs=3,
+        error_code=2,
+        msg='Invalid value for "--type"'
     )
-    # TODO: Maybe here we should also raise an exit_code 2
-    assert r.exit_code == 2
-    assert 'Invalid value for "--price_per_hour"' in r.output
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_per_hour():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        type=InstanceType.STANDARD,
+        price_per_hour='blabla',
+        max_num_parallel_jobs=3,
+        error_code=2,
+        msg='Invalid value for "--price_per_hour"'
+    )
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 def test_user_get_validation_error_when_creating_an_instance_with_invalid_max_num_parallel_jobs():
-    email, username, password, account_uuid = _accountSetUp()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.create_instance(
-        name=account_uuid,
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        type=InstanceType.STANDARD,
         price_per_hour=1.5,
-        max_num_parallel_jobs='blabla'
+        max_num_parallel_jobs='blabla',
+        error_code=2,
+        msg='Invalid value for "--max_num_parallel_jobs"'
     )
-    print(r.exit_code, r.output)
-    assert r.exit_code == 2
-    assert 'Invalid value for "--max_num_parallel_jobs"' in r.output
 
-    _accountTearDown(account_uuid)
+    TestWrapper.delete_account_successfully(uuid=account_uuid)

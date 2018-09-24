@@ -1,40 +1,31 @@
-from tests.test_utils import TestUtils
+from tests.constants import Message
+from tests.test_utils import TestUtils, TestWrapper
+
+
+# Worflow
+
+def test_user_deletes_account_successfully():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
 # Logged out
 def test_user_get_validation_error_when_deleting_an_account_while_being_logged_out():
-    r = TestUtils.delete_account(
-        uuid='6166a825-00be-4f5c-837c-7d1a1ffc015e',
-    )
-
-    assert r.exit_code == 1
-    assert 'You seem to be logged out. Please log in first' in r.output
+    TestWrapper.delete_account_unsuccessfully(
+        uuid=TestUtils.generate_uuid(),
+        error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
 
 # Missing fields
 def test_user_get_validation_error_when_deleting_an_account_with_missing_uuid():
-    email, username, password = TestUtils.generate_credentials()
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
-    r = TestUtils.create_account(
-        email=email,
-        username=username,
-        password=password
-    )
-    assert r.exit_code == 0
-    assert 'has been created' in r.output
-    account_uuid = TestUtils.extract_uuid(r.output)
+    TestWrapper.login_successfully(username=username, password=password)
 
-    r = TestUtils.login(username, password)
-    assert r.exit_code == 0
+    TestWrapper.delete_account_unsuccessfully(error_code=2, msg='Missing option "--uuid"')
 
-    r = TestUtils.delete_account()
-    assert r.exit_code == 2
-    assert 'Missing option "--uuid"' in r.output
-
-    r = TestUtils.delete_account(
-        uuid=account_uuid
-    )
-    assert r.exit_code == 0
-    assert 'was deleted' in r.output
-
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 # Invalid Fields
