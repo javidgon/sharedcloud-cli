@@ -61,7 +61,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_failing()
             '\n',
             '\n'
         ],
-        expected_stdouts=[
+        expected_stderrs=[
             'This is a test Exception',
             'This is a test Exception',
             'This is a test Exception',

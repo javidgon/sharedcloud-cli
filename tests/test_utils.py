@@ -296,6 +296,17 @@ class TestUtils:
 
         return cls.runner.invoke(job, args, obj=config)
 
+    @classmethod
+    def get_stderr_for_job(cls, uuid):
+        config = Config(token=_read_token())
+        args = ['stderr']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+
+        return cls.runner.invoke(job, args, obj=config)
+
     # Instances
     @classmethod
     def create_instance(
@@ -897,18 +908,27 @@ class TestWrapper:
         return r, job_uuids
 
     @classmethod
-    def check_jobs_attributes(cls, uuids=None, expected_logs=None, expected_results=None, expected_stdouts=None):
+    def check_jobs_attributes(cls, uuids=None, expected_logs=None, expected_results=None,
+                              expected_stdouts=None, expected_stderrs=None):
         for idx, uuid in enumerate(uuids):
             inverse_order = len(uuids)-(idx+1)
 
-            r = TestUtils.get_logs_for_job(uuid)
-            assert r.exit_code == 0
-            assert expected_logs[inverse_order] in r.output
+            if expected_logs:
+                r = TestUtils.get_logs_for_job(uuid)
+                assert r.exit_code == 0
+                assert expected_logs[inverse_order] in r.output
 
-            r = TestUtils.get_result_for_job(uuid)
-            assert r.exit_code == 0
-            assert expected_results[inverse_order] in r.output
+            if expected_results:
+                r = TestUtils.get_result_for_job(uuid)
+                assert r.exit_code == 0
+                assert expected_results[inverse_order] in r.output
 
-            r = TestUtils.get_stdout_for_job(uuid)
-            assert r.exit_code == 0
-            assert expected_stdouts[inverse_order] in r.output
+            if expected_stdouts:
+                r = TestUtils.get_stdout_for_job(uuid)
+                assert r.exit_code == 0
+                assert expected_stdouts[inverse_order] in r.output
+
+            if expected_stderrs:
+                r = TestUtils.get_stderr_for_job(uuid)
+                assert r.exit_code == 0
+                assert expected_stderrs[inverse_order] in r.output

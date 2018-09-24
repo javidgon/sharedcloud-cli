@@ -607,7 +607,7 @@ def logs(config, uuid):
 @pass_obj
 def result(config, uuid):
     _show_field_value(
-        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'function_result')
+        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'result')
 
 
 @job.command(help='Display the Job\'s stdout')
@@ -615,7 +615,15 @@ def result(config, uuid):
 @pass_obj
 def stdout(config, uuid):
     _show_field_value(
-        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'function_stdout')
+        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stdout')
+
+
+@job.command(help='Display the Job\'s stderr')
+@click.option('--uuid', required=True, type=click.UUID)
+@pass_obj
+def stderr(config, uuid):
+    _show_field_value(
+        '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stderr')
 
 
 @job.command(help='List Jobs')
@@ -647,9 +655,6 @@ def instance(config):
 @pass_obj
 def create(config, name, type, price_per_hour, max_num_parallel_jobs):
     # sharedcloud instance create --name blabla --type standard --price_per_hour 2.0 --max_num_parallel_jobs 3
-    # if os.path.exists(INSTANCE_CONFIG_FILE):
-    #     click.echo('This machine seems to already contain an instance. Please delete it before creating a new one.')
-    #     exit(1)
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
@@ -742,22 +747,23 @@ def start(config, job_timeout):
         return build_logs
 
     def _run_container(job_uuid, job_folder, job_requires_gpu, job_image_path):
-        function_stdout = b''
-        function_result = b''
+        stdout = b''
+        stderr = b''
+        result = b''
         container_name = job_uuid
         has_failed = False
         def _extract_output(output):
-            function_stdout = b''
-            function_result = b''
+            stdout = b''
+            result = b''
             for line in output.splitlines():
                 if 'ResponseHandler' in str(line):
                     start = str(line).find('|') - 1
                     end = str(line).find('?') - 2
-                    function_result = line[start:end]
+                    result = line[start:end]
                 else:
-                    function_stdout += line + b'\n'
+                    stdout += line + b'\n'
 
-            return function_stdout, function_result
+            return stdout, result
 
         args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
              container_name, '-v', '{}:/data/'.format(job_folder), job_image_path]
@@ -769,11 +775,12 @@ def start(config, job_timeout):
         output, error = p.communicate()
         if p.returncode != 0:
             has_failed = True
-            function_stdout, _ = _extract_output(output + b'\n' + error)
+            stderr = error
+            stdout, _ = _extract_output(output)
         else:
-            function_stdout, function_result = _extract_output(output)
+            stdout, result = _extract_output(output)
 
-        return container_name, function_stdout, function_result, has_failed
+        return container_name, stdout, stderr, result, has_failed
 
     def _update_images(token):
         r = requests.get(
@@ -800,21 +807,23 @@ def start(config, job_timeout):
         if error:
             exit('Is the Docker daemon running in your machine?')
 
-    def _report_failure(job_uuid, function_stdout, function_result, build_logs):
+    def _report_failure(job_uuid, stdout, stderr, result, build_logs):
         _send_job_results(
             job_uuid, {
                 "build_logs": build_logs,
-                "function_stdout": function_stdout,
-                "function_result": function_result,
+                "stdout": stdout,
+                "stderr": stderr,
+                "result": result,
                 "status": JOB_STATUSES['FAILED']
             }, config.token)
 
-    def _report_success(job_uuid, function_stdout, function_result, build_logs):
+    def _report_success(job_uuid, stdout, stderr, result, build_logs):
         _send_job_results(
             job_uuid, {
                 "build_logs": build_logs,
-                "function_stdout": function_stdout,
-                "function_result": function_result,
+                "stdout": stdout,
+                "stderr": stderr,
+                "result": result,
                 "status": JOB_STATUSES['SUCCEEDED']
             }, config.token)
 
@@ -826,7 +835,7 @@ def start(config, job_timeout):
 
     def _job_loop(
             config, job_uuid, job_folder, job_requires_gpu, job_image_registry_path, job_wrapped_code,
-            build_logs, function_stdout, function_result):
+            build_logs, stdout, stderr, result):
         # We update the job in the remote, so it doesn't get assigned to other instances
         _send_job_results(
             job_uuid, {
@@ -852,12 +861,12 @@ def start(config, job_timeout):
         build_logs = _pull_image(job_image_registry_path)
 
         # After the image has been generated, we run our container and calculate our result
-        container_name, function_stdout, function_result, has_failed = _run_container(
+        container_name, stdout, stderr, result, has_failed = _run_container(
             job_uuid, job_folder, job_requires_gpu, job_image_registry_path)
         if has_failed:
-            _report_failure(job_uuid, function_stdout, function_result, build_logs)
+            _report_failure(job_uuid, stdout, stderr, result, build_logs)
         else:
-            _report_success(job_uuid, function_stdout, function_result, build_logs)
+            _report_success(job_uuid, stdout, stderr, result, build_logs)
 
         # After this has been done, we make sure to clean up the job folder
         shutil.rmtree(job_folder)
@@ -870,8 +879,9 @@ def start(config, job_timeout):
 
     job_uuid = None
     build_logs = b''
-    function_stdout = b''
-    function_result = b''
+    stdout = b''
+    stderr = b''
+    result = b''
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
@@ -903,7 +913,7 @@ def start(config, job_timeout):
 
                 processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
                    config, job_uuid, job_folder, job_requires_gpu, job_image_registry_path,
-                   job_wrapped_code, build_logs, function_stdout, function_result))
+                   job_wrapped_code, build_logs, stdout, stderr, result))
 
             for job_uuid, process in processes.items():
                 process.start()
