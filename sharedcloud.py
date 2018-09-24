@@ -174,9 +174,11 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
                      data=data, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 404:
-        raise ObjectNotFoundException()
+        click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+        exit(1)
     elif r.status_code != 200:
-        raise Exception(r.content)
+        click.echo(r.content)
+        exit(1)
     return r
 
 # Mappers
@@ -765,7 +767,7 @@ def start(config, job_timeout):
 
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
-        if error:
+        if p.returncode != 0:
             has_failed = True
             function_stdout, _ = _extract_output(output + b'\n' + error)
         else:
