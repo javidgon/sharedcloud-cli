@@ -1,12 +1,11 @@
 import os
 
-from tests.constants import Image, Message
+from tests.constants import Image, Message, Gpu
 from tests.test_utils import TestUtils, TestWrapper
 
 
 # Workflow
-
-def test_user_creates_a_run_successfully():
+def test_user_creates_a_run_without_gpu_requirements_successfully():
     parameter = '((1,),(2,))'
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
@@ -29,6 +28,37 @@ def test_user_creates_a_run_successfully():
     TestWrapper.check_list_runs_output(
         expected_uuid=[run_uuid],
         expected_parameters=[parameter],
+        expected_function=[function_name],
+        expected_num_runs=1)
+
+    TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+def test_user_creates_a_run_with_gpu_requirements_successfully():
+    parameter = '((1,),(2,))'
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+
+    account_uuid, email, username, password = TestWrapper.create_beta_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.check_account_output(
+        expected_email=[email],
+        expected_username=[username],
+        expected_balance_is_zero=True
+    )
+
+    function_uuid, function_name = TestWrapper.create_function_successfully(
+        image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
+
+    run_uuid = TestWrapper.create_run_successfully(
+        function_uuid=function_uuid, parameters=parameter, base_gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
+
+    TestWrapper.check_list_runs_output(
+        expected_uuid=[run_uuid],
+        expected_parameters=[parameter],
+        expected_base_gpu=[Gpu.TITAN_V_12GB['name']],
         expected_function=[function_name],
         expected_num_runs=1)
 

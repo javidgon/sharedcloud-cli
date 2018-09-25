@@ -1,14 +1,11 @@
 import multiprocessing
+import os
 import subprocess
 
 import click
 import datetime
-
-import psutil
 import requests
-import os
 import time
-import shutil
 import timeago
 from click import pass_obj
 from tabulate import tabulate
@@ -40,10 +37,12 @@ INSTANCE_TYPES = {
     'GPU': 2
 }
 
+
 # Utils
 
 class ObjectNotFoundException(Exception):
     pass
+
 
 def _read_token():
     if not os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
@@ -66,6 +65,7 @@ def _exit_if_user_is_logged_out(token):
         click.echo('You seem to be logged out. Please log in first')
         exit(1)
 
+
 def _get_instance_uuid_or_exit_if_there_is_none():
     instance_uuid = _read_instance_uuid()
     if not instance_uuid:
@@ -80,6 +80,7 @@ def _get_server_datetime(token):
     if r.status_code == 200:
         response = r.json()
         return datetime.datetime.strptime(response.get('datetime'), DATETIME_FORMAT)
+
 
 # Generic methods
 
@@ -97,6 +98,7 @@ def _create_resource(url, token, data):
         click.echo(r.content)
         exit(1)
     return r
+
 
 def _list_resource(url, token, headers, keys, mappers=None):
     def _get_data(resource, key, token):
@@ -173,7 +175,7 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
         data = {}
 
     r = requests.patch('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
-                     data=data, headers={'Authorization': 'Token {}'.format(token)})
+                       data=data, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
         click.echo(data.get('uuid'))
@@ -184,6 +186,7 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
         click.echo(r.content)
         exit(1)
     return r
+
 
 # Mappers
 def _map_datetime_obj_to_human_representation(datetime_obj, token):
@@ -198,27 +201,33 @@ def _map_job_status_to_description(status, token):
         if id == status:
             return status_name
 
+
 def _map_instance_status_to_description(status, token):
     for status_name, id in INSTANCE_STATUSES.items():
         if id == status:
             return status_name
+
 
 def _map_instance_type_to_description(type, token):
     for type_name, id in INSTANCE_TYPES.items():
         if id == type:
             return type_name
 
+
 def _map_code_to_reduced_version(code, token):
     if len(code) > 35:
         return code[:30] + '...'
     return code
 
+
 def _map_cost_number_to_version_with_currency(cost, token):
     return '${}'.format(cost)
+
 
 def _map_duration_to_readable_version(duration, token):
     if duration:
         return '{} seconds'.format(duration)
+
 
 # Validators
 
@@ -244,7 +253,8 @@ def _validate_file(ctx, param, file):
 
 def _validate_uuid(ctx, param, uuid):
     if not uuid and not os.path.exists(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME):
-        raise click.BadParameter('This machine doesn\'t seem to contain an instance. If you still want to refer to one that you own, you need to provide the UUID')
+        raise click.BadParameter(
+            'This machine doesn\'t seem to contain an instance. If you still want to refer to one that you own, you need to provide the UUID')
 
     return uuid
 
@@ -253,7 +263,9 @@ class Config(object):
     def __init__(self):
         self.token = None
 
+
 pass_config = click.make_pass_decorator(Config, ensure=True)
+
 
 @click.group()
 @pass_config
@@ -269,6 +281,7 @@ def cli1(config):
 @pass_obj
 def account(config):
     pass
+
 
 @account.command(help='Creates a new Account')
 @click.option('--email', required=True)
@@ -316,6 +329,7 @@ def delete(config, uuid):
     })
 
     _logout()
+
 
 @account.command(help='List Account Information')
 @pass_obj
@@ -373,10 +387,31 @@ def logout():
     _logout()
 
 
+@cli1.group(help='List GPUs models available')
+@pass_obj
+def gpu(config):
+    _exit_if_user_is_logged_out(config.token)
+
+
+@gpu.command(help='List GPUs models available')
+@pass_obj
+def list(config):
+    # sharedcloud gpu list"
+
+    url = '{}/api/v1/gpus/'.format(SHAREDCLOUD_CLI_URL)
+
+    _list_resource(url,
+                   config.token,
+                   ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES'],
+                   ['uuid', 'name', 'codename', 'cuda_cores'],
+                   mappers={})
+
+
 @cli1.group(help='List/Clean/Download Images')
 @pass_obj
 def image(config):
     _exit_if_user_is_logged_out(config.token)
+
 
 @image.command(help='List Images')
 @click.option('--only-downloaded', is_flag=True)
@@ -397,6 +432,7 @@ def list(config, only_downloaded):
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
                    })
+
 
 @image.command(help='Clean Image from the system')
 @click.option('--registry-path', required=True, type=click.STRING)
@@ -419,6 +455,7 @@ def clean(config, registry_path):
         })
         for line in output.splitlines():
             click.echo(line + b'\n')
+
 
 @image.command(help='Download Image')
 @click.option('--registry-path', required=True)
@@ -463,11 +500,13 @@ def _update_all_images(config):
         click.echo(r.content)
         exit(1)
 
+
 @image.command(help='Update All downloaded Images')
 @pass_obj
 def update_all(config):
     # sharedcloud image update_all
     _update_all_images(config)
+
 
 @cli1.group(help='Create/Delete/Update/List Functions')
 @pass_obj
@@ -547,12 +586,14 @@ def delete(config, uuid):
         'uuid': uuid
     })
 
+
 @function.command(help='Display the Functions\'s code')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def code(config, uuid):
     _show_field_value(
         '{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'code')
+
 
 @cli1.group(help='Create/List Runs')
 @pass_obj
@@ -563,12 +604,14 @@ def run(config):
 @run.command(help='Creates a new Run')
 @click.option('--function-uuid', required=True, type=click.UUID)
 @click.option('--parameters', required=True)
+@click.option('--base-gpu-uuid', required=False)
 @pass_obj
-def create(config, function_uuid, parameters):
-    # sharedcloud run create --function-uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
+def create(config, function_uuid, parameters, base_gpu_uuid):
+    # sharedcloud run create --function-uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))" --base_gpu_uuid <uuid>
     _create_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'function': function_uuid,
-        'parameters': parameters
+        'parameters': parameters,
+        'base_gpu_uuid': base_gpu_uuid
     })
 
 
@@ -588,8 +631,8 @@ def list(config):
     # sharedcloud function list"
     _list_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION'],
-                   ['uuid', 'parameters', 'created_at', 'function_name'],
+                   ['UUID', 'PARAMETERS', 'BASE_GPU', 'FUNCTION', 'WHEN'],
+                   ['uuid', 'parameters', 'base_gpu_name', 'function_name', 'created_at'],
                    mappers={
                        'created_at': _map_datetime_obj_to_human_representation
                    })
@@ -614,6 +657,7 @@ def list(config):
                        'status': _map_job_status_to_description,
                        'created_at': _map_datetime_obj_to_human_representation
                    })
+
 
 @job.command(help='Display the Job\'s build logs')
 @click.option('--uuid', required=True, type=click.UUID)
@@ -695,8 +739,10 @@ def create(config, name, type, price_per_minute, max_num_parallel_jobs):
 def list(config):
     _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'price_per_minute', 'type', 'num_running_jobs', 'max_num_parallel_jobs', 'last_connection'],
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
+                    'LAST_CONNECTION'],
+                   ['uuid', 'name', 'status', 'price_per_minute', 'type', 'num_running_jobs', 'max_num_parallel_jobs',
+                    'last_connection'],
                    mappers={
                        'status': _map_instance_status_to_description,
                        'type': _map_instance_type_to_description,
@@ -742,7 +788,6 @@ def delete(config, uuid):
 @click.option('--job-timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
 def start(config, job_timeout):
-
     def _update_job_remotely(job_uuid, data, token):
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
@@ -768,6 +813,7 @@ def start(config, job_timeout):
         result = b''
         container_name = job_uuid
         has_failed = False
+
         def _extract_output(output):
             stdout = b''
             result = b''
@@ -782,7 +828,7 @@ def start(config, job_timeout):
             return stdout, result
 
         args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
-             container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_path]
+                container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_path]
 
         if job_requires_gpu:
             args.insert(2, '--runtime=nvidia')
@@ -851,7 +897,6 @@ def start(config, job_timeout):
         else:
             _report_success(job_uuid, stdout, stderr, result, build_logs)
 
-
     instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
     _exit_if_docker_daemon_is_not_running()
@@ -887,7 +932,7 @@ def start(config, job_timeout):
                 job_wrapped_code = job.get('wrapped_code')
 
                 processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
-                   config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code))
+                    config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code))
 
             for job_uuid, process in processes.items():
                 process.start()

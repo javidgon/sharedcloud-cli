@@ -20,6 +20,14 @@ class Image:
         'description': 'TensorFlow is an open-source software library for dataflow programming across a range of tasks'
     }
 
+class Gpu:
+    TITAN_V_12GB = {
+        'uuid': 'caf0daeb-ba23-4499-b4f9-8b4965714366',
+        'name': ' Nvidia Titan V 12GB',
+        'codename': 'titanv',
+        'cuda_cores': 5120
+    }
+
 class Message:
     LOGIN_SUCCEEDED = 'Login Succeeded'
     LOGOUT_SUCCEEDED = 'Logout Succeeded'

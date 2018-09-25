@@ -5,7 +5,7 @@ import uuid
 
 from click.testing import CliRunner
 
-from sharedcloud import cli1, _read_token, function, run, instance, job, account, image
+from sharedcloud import cli1, _read_token, function, run, instance, job, account, image, gpu
 from tests.constants import Message
 
 
@@ -239,7 +239,9 @@ class TestUtils:
     def create_run(
             cls,
             function_uuid=None,
-            parameters=None):
+            parameters=None,
+            base_gpu_uuid=None
+    ):
         config = Config(token=_read_token())
         args =['create']
 
@@ -249,7 +251,10 @@ class TestUtils:
         if parameters:
             args.append('--parameters')
             args.append(parameters)
+        if base_gpu_uuid:
+            args.append('--base-gpu-uuid')
 
+        args.append(parameters)
         return cls.runner.invoke(run, args, obj=config)
 
     @classmethod
@@ -262,6 +267,14 @@ class TestUtils:
             args.append(uuid)
 
         return cls.runner.invoke(run, args, obj=config)
+
+    # Gpus
+    @classmethod
+    def list_gpus(cls):
+        config = Config(token=_read_token())
+        return cls.runner.invoke(gpu, [
+            'list',
+        ], obj=config)
 
     # Jobs
     @classmethod
@@ -704,8 +717,8 @@ class TestWrapper:
 
     # Run
     @classmethod
-    def create_run_successfully(cls, function_uuid=None, parameters=None):
-        r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters)
+    def create_run_successfully(cls, function_uuid=None, parameters=None, base_gpu_uuid=None):
+        r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters, base_gpu_uuid=base_gpu_uuid)
         assert r.exit_code == 0
         return TestUtils.extract_uuid(r.output)
 
@@ -732,11 +745,12 @@ class TestWrapper:
     def check_list_runs_output(cls,
                   expected_uuid=None,
                   expected_parameters=None,
+                  expected_base_gpu=None,
                   expected_function=None,
                   expected_num_runs=None,
                   expected_logout_warning=False
     ):
-        columns = ['UUID', 'PARAMETERS', 'WHEN', 'FUNCTION']
+        columns = ['UUID', 'PARAMETERS', 'BASE_GPU', 'FUNCTION', 'WHEN']
         r = TestUtils.list_runs()
         if expected_logout_warning:
             assert r.exit_code == 1
@@ -764,6 +778,9 @@ class TestWrapper:
 
             if expected_parameters:
                 assert expected_parameters[inverse_order] in fields[columns.index('PARAMETERS')]
+
+            if expected_base_gpu:
+                assert expected_base_gpu[inverse_order] in fields[columns.index('BASE_GPU')]
 
             if expected_function:
                 assert expected_function[inverse_order] in fields[columns.index('FUNCTION')]
@@ -881,6 +898,44 @@ class TestWrapper:
                 assert expected_max_num_parallel_jobs[inverse_order] in fields[columns.index('MAX_NUM_PARALLEL_JOBS')]
 
         return r
+
+    # GPU
+    @classmethod
+    def check_list_gpus_output(cls,
+                  expected_name=None,
+                  expected_codename=None,
+                  expected_logout_warning=False,
+                  expected_num_gpus=None
+    ):
+        columns = ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES']
+        r = TestUtils.list_gpus()
+        if expected_logout_warning:
+            assert r.exit_code == 1
+            assert Message.YOU_ARE_LOGOUT_WARNING in r.output
+            return
+        else:
+            assert r.exit_code == 0
+
+        for column in columns:
+            assert column in r.output
+
+        gpu_uuids = []
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+        num_rows = len(rows)
+        if expected_num_gpus:
+            assert num_rows == expected_num_gpus
+
+        for idx, row in enumerate(rows):
+            gpu_uuids.append(TestUtils.extract_uuid(row))
+            fields = [field for field in row.split('  ') if field]
+
+            if expected_name:
+                assert expected_name[idx] in fields[columns.index('NAME')]
+
+            if expected_codename:
+                assert expected_codename[idx] in fields[columns.index('CODENAME')]
+
+        return r, gpu_uuids
 
     # Job
     @classmethod
