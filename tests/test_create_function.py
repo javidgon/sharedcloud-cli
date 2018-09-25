@@ -84,7 +84,7 @@ def test_user_get_validation_error_when_creating_a_function_with_missing_image_u
 
     TestWrapper.create_function_unsuccessfully(
         name=TestUtils.generate_random_seed(), file=file, error_code=2,
-        msg='Missing option "--image_uuid"')
+        msg='Missing option "--image-uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
@@ -125,6 +125,6 @@ def test_user_get_validation_error_when_creating_a_function_with_invalid_image_u
 
     TestWrapper.create_function_unsuccessfully(
         name=TestUtils.generate_random_seed(), image_uuid='blabla', file=file, error_code=2,
-        msg='Invalid value for "--image_uuid"')
+        msg='Invalid value for "--image-uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)

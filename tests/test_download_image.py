@@ -47,7 +47,7 @@ def test_user_gets_validation_error_when_downloading_an_image_without_registry_p
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.download_image_unsuccessfully(error_code=2, msg='Missing option "--registry_path"')
+    TestWrapper.download_image_unsuccessfully(error_code=2, msg='Missing option "--registry-path"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 

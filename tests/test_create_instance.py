@@ -84,7 +84,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_price
         type=InstanceType.STANDARD,
         max_num_parallel_jobs=3,
         error_code=2,
-        msg='Missing option "--price_per_hour"'
+        msg='Missing option "--price-per-hour"'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
@@ -144,7 +144,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_
         price_per_hour='blabla',
         max_num_parallel_jobs=3,
         error_code=2,
-        msg='Invalid value for "--price_per_hour"'
+        msg='Invalid value for "--price-per-hour"'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
@@ -161,7 +161,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_max_nu
         price_per_hour=1.5,
         max_num_parallel_jobs='blabla',
         error_code=2,
-        msg='Invalid value for "--max_num_parallel_jobs"'
+        msg='Invalid value for "--max-num-parallel-jobs"'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)

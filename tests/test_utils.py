@@ -127,7 +127,7 @@ class TestUtils:
             args.append('--name')
             args.append(name)
         if image_uuid:
-            args.append('--image_uuid')
+            args.append('--image-uuid')
             args.append(image_uuid)
         if code:
             args.append('--code')
@@ -154,7 +154,7 @@ class TestUtils:
             args.append('--name')
             args.append(name)
         if image_uuid:
-            args.append('--image_uuid')
+            args.append('--image-uuid')
             args.append(image_uuid)
         if code:
             args.append('--code')
@@ -191,7 +191,7 @@ class TestUtils:
         config = Config(token=_read_token())
         args = ['list']
         if only_downloaded:
-            args.append('--only_downloaded')
+            args.append('--only-downloaded')
 
         return cls.runner.invoke(image, args, obj=config)
 
@@ -202,7 +202,7 @@ class TestUtils:
         args = ['download']
 
         if registry_path:
-            args.append('--registry_path')
+            args.append('--registry-path')
             args.append(registry_path)
 
         return cls.runner.invoke(image, args, obj=config)
@@ -214,7 +214,7 @@ class TestUtils:
         args = ['clean']
 
         if registry_path:
-            args.append('--registry_path')
+            args.append('--registry-path')
             args.append(registry_path)
 
         return cls.runner.invoke(image, args, obj=config)
@@ -236,7 +236,7 @@ class TestUtils:
         args =['create']
 
         if function_uuid:
-            args.append('--function_uuid')
+            args.append('--function-uuid')
             args.append(function_uuid)
         if parameters:
             args.append('--parameters')
@@ -325,10 +325,10 @@ class TestUtils:
             args.append('--type')
             args.append(type)
         if price_per_hour:
-            args.append('--price_per_hour')
+            args.append('--price-per-hour')
             args.append(price_per_hour)
         if max_num_parallel_jobs:
-            args.append('--max_num_parallel_jobs')
+            args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
         return cls.runner.invoke(instance, args, obj=config)
 
@@ -353,10 +353,10 @@ class TestUtils:
             args.append('--type')
             args.append(type)
         if price_per_hour:
-            args.append('--price_per_hour')
+            args.append('--price-per-hour')
             args.append(price_per_hour)
         if max_num_parallel_jobs:
-            args.append('--max_num_parallel_jobs')
+            args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
         return cls.runner.invoke(instance, args, obj=config)
 
@@ -376,7 +376,7 @@ class TestUtils:
         args =['start']
 
         if job_timeout:
-            args.append('--job_timeout')
+            args.append('--job-timeout')
             args.append(job_timeout)
         return cls.runner.invoke(instance, args, obj=config)
 

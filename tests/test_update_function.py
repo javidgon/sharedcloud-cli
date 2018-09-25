@@ -119,7 +119,7 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_image_u
 
     TestWrapper.update_function_unsuccessfully(
         uuid=account_uuid, name=TestUtils.generate_random_seed(), image_uuid='blabla', file=file, error_code=2,
-        msg='Invalid value for "--image_uuid"')
+        msg='Invalid value for "--image-uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 

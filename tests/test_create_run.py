@@ -79,7 +79,7 @@ def test_user_get_validation_error_when_creating_a_run_with_missing_function_uui
 
     TestWrapper.create_run_unsuccessfully(
         parameters=parameter,
-        error_code=2, msg='Missing option "--function_uuid"')
+        error_code=2, msg='Missing option "--function-uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 

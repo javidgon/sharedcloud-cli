@@ -378,7 +378,7 @@ def image(config):
     _exit_if_user_is_logged_out(config.token)
 
 @image.command(help='List Images')
-@click.option('--only_downloaded', is_flag=True)
+@click.option('--only-downloaded', is_flag=True)
 @pass_obj
 def list(config, only_downloaded):
     # sharedcloud image list"
@@ -398,10 +398,10 @@ def list(config, only_downloaded):
                    })
 
 @image.command(help='Clean Image from the system')
-@click.option('--registry_path', required=True, type=click.STRING)
+@click.option('--registry-path', required=True, type=click.STRING)
 @pass_obj
 def clean(config, registry_path):
-    # sharedcloud image clean --registry_path <image>
+    # sharedcloud image clean --registry-path <image>
     instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
     p = subprocess.Popen(
@@ -420,10 +420,10 @@ def clean(config, registry_path):
             click.echo(line + b'\n')
 
 @image.command(help='Download Image')
-@click.option('--registry_path', required=True)
+@click.option('--registry-path', required=True)
 @pass_obj
 def download(config, registry_path):
-    # sharedcloud image download --registry_path <image>
+    # sharedcloud image download --registry-path <image>
     instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
     p = subprocess.Popen(
@@ -448,13 +448,13 @@ def function(config):
 
 @function.command(help='Creates a new Function')
 @click.option('--name', required=True)
-@click.option('--image_uuid', required=True, type=click.UUID)
+@click.option('--image-uuid', required=True, type=click.UUID)
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
 @click.option('--code', required=False, callback=_validate_code)
 @pass_obj
 def create(config, name, image_uuid, file, code):
-    # sharedcloud function create --name mything --image_uuid <uuid> --code "def handler(event): return 2"
-    # sharedcloud function create --name mything --image_uuid <uuid> --file "file.py"
+    # sharedcloud function create --name mything --image-uuid <uuid> --code "def handler(event): return 2"
+    # sharedcloud function create --name mything --image-uuid <uuid> --file "file.py"
     if file:
         code = ''
         while True:
@@ -472,7 +472,7 @@ def create(config, name, image_uuid, file, code):
     function_uuid = resource.get('uuid')
     click.echo('')
     click.echo('Congrats! Now you have the following options to run your function:')
-    click.echo('1) CLI: sharedcloud run create --function_uuid {} --parameters <parameters>'.format(function_uuid))
+    click.echo('1) CLI: sharedcloud run create --function-uuid {} --parameters <parameters>'.format(function_uuid))
     click.echo('2) REST endpoint: {}/api/v1/runs/ (POST)'.format(SHAREDCLOUD_CLI_URL))
     click.echo('\t\t BODY: {"function": "' + function_uuid + '", "parameters": <parameters>}')
     click.echo('\t\t HEADER: "Authorization: Token {}"'.format(config.token))
@@ -481,13 +481,13 @@ def create(config, name, image_uuid, file, code):
 @function.command(help='Update a Function')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--name', required=False)
-@click.option('--image_uuid', required=False, type=click.UUID)
+@click.option('--image-uuid', required=False, type=click.UUID)
 @click.option('--file', required=False, type=click.File())
 @click.option('--code', required=False)
 @pass_obj
 def update(config, uuid, name, image_uuid, file, code):
-    # sharedcloud function update --uuid <uuid> --name mything --image_uuid <uuid> --code "import sys; print(sys.argv)"
-    # sharedcloud function update  --uuid <uuid> --name mything --image_uuid <uuid> --file "file.py"
+    # sharedcloud function update --uuid <uuid> --name mything --image-uuid <uuid> --code "import sys; print(sys.argv)"
+    # sharedcloud function update  --uuid <uuid> --name mything --image-uuid <uuid> --file "file.py"
     if file:
         code = ''
         while True:
@@ -540,11 +540,11 @@ def run(config):
 
 
 @run.command(help='Creates a new Run')
-@click.option('--function_uuid', required=True, type=click.UUID)
+@click.option('--function-uuid', required=True, type=click.UUID)
 @click.option('--parameters', required=True)
 @pass_obj
 def create(config, function_uuid, parameters):
-    # sharedcloud run create --function_uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
+    # sharedcloud run create --function-uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))"
     _create_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'function': function_uuid,
         'parameters': parameters
@@ -650,11 +650,11 @@ def instance(config):
 @instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
 @click.option('--type', required=True, type=click.Choice(['standard', 'gpu']))
-@click.option('--price_per_hour', required=True, type=click.FLOAT)
-@click.option('--max_num_parallel_jobs', default=1, type=click.INT)
+@click.option('--price-per-hour', required=True, type=click.FLOAT)
+@click.option('--max-num-parallel-jobs', default=1, type=click.INT)
 @pass_obj
 def create(config, name, type, price_per_hour, max_num_parallel_jobs):
-    # sharedcloud instance create --name blabla --type standard --price_per_hour 2.0 --max_num_parallel_jobs 3
+    # sharedcloud instance create --name blabla --type standard --price-per-hour 2.0 --max-num-parallel-jobs 3
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
@@ -686,11 +686,11 @@ def list(config):
 @click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
 @click.option('--type', required=False, type=click.Choice(['standard', 'gpu']))
 @click.option('--name', required=False)
-@click.option('--price_per_hour', required=False, type=click.FLOAT)
-@click.option('--max_num_parallel_jobs', required=False, type=click.INT)
+@click.option('--price-per-hour', required=False, type=click.FLOAT)
+@click.option('--max-num-parallel-jobs', required=False, type=click.INT)
 @pass_obj
 def update(config, uuid, type, name, price_per_hour, max_num_parallel_jobs):
-    # sharedcloud instance update --name blabla --type standard --price_per_hour 2.0 --max_num_parallel_jobs 3
+    # sharedcloud instance update --name blabla --type standard --price-per-hour 2.0 --max-num-parallel-jobs 3
 
     _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
@@ -717,7 +717,7 @@ def delete(config, uuid):
 
 
 @instance.command(help='Starts an Instance')
-@click.option('--job_timeout', required=False, default=1800.0, type=click.FLOAT)
+@click.option('--job-timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
 def start(config, job_timeout):
 
