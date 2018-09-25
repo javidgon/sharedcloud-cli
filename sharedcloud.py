@@ -724,9 +724,7 @@ def start(config, job_timeout):
     def _send_job_results(job_uuid, data, token):
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
-        if r.status_code == 404:
-            raise ObjectNotFoundException()
-        elif r.status_code != 200:
+        if r.status_code != 200:
             raise Exception(r.content)
         return r
 
@@ -746,7 +744,7 @@ def start(config, job_timeout):
             build_logs += line + b'\n'
         return build_logs
 
-    def _run_container(job_uuid, job_folder, job_requires_gpu, job_image_path):
+    def _run_container(job_uuid, job_wrapped_code, job_requires_gpu, job_image_path):
         stdout = b''
         stderr = b''
         result = b''
@@ -766,13 +764,14 @@ def start(config, job_timeout):
             return stdout, result
 
         args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
-             container_name, '-v', '{}:/data/'.format(job_folder), job_image_path]
+             container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_path]
 
         if job_requires_gpu:
             args.insert(2, '--runtime=nvidia')
 
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
+
         if p.returncode != 0:
             has_failed = True
             stderr = error
@@ -780,7 +779,7 @@ def start(config, job_timeout):
         else:
             stdout, result = _extract_output(output)
 
-        return container_name, stdout, stderr, result, has_failed
+        return stdout, stderr, result, has_failed
 
     def _update_images(token):
         r = requests.get(
@@ -834,42 +833,23 @@ def start(config, job_timeout):
             }, config.token)
 
     def _job_loop(
-            config, job_uuid, job_folder, job_requires_gpu, job_image_registry_path, job_wrapped_code,
-            build_logs, stdout, stderr, result):
+            config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code):
         # We update the job in the remote, so it doesn't get assigned to other instances
         _send_job_results(
             job_uuid, {
                 "status": JOB_STATUSES['IN_PROGRESS']
             }, config.token)
 
-        # Now we build the job folder in the local computer, so we can do the job
-
-        # If the job folder already exists, we clean up before
-        if os.path.exists(job_folder):
-            shutil.rmtree(job_folder)
-
-        # Here we create an empty job folder
-        os.makedirs(job_folder)
-
-        # Here we create the file from the received Code
-        _create_file_from_data(job_wrapped_code, '{}/file'.format(job_folder))
-
-        # After the files have been created, we can generate the image that we are going to
-        # use to run our container
-        container_name = None
-
         build_logs = _pull_image(job_image_registry_path)
 
         # After the image has been generated, we run our container and calculate our result
-        container_name, stdout, stderr, result, has_failed = _run_container(
-            job_uuid, job_folder, job_requires_gpu, job_image_registry_path)
+        stdout, stderr, result, has_failed = _run_container(
+            job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path)
         if has_failed:
             _report_failure(job_uuid, stdout, stderr, result, build_logs)
         else:
             _report_success(job_uuid, stdout, stderr, result, build_logs)
 
-        # After this has been done, we make sure to clean up the job folder
-        shutil.rmtree(job_folder)
 
     instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
@@ -878,10 +858,6 @@ def start(config, job_timeout):
     # sharedcloud instance start --uuid <uuid>
 
     job_uuid = None
-    build_logs = b''
-    stdout = b''
-    stderr = b''
-    result = b''
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
@@ -906,14 +882,12 @@ def start(config, job_timeout):
                 job_uuid = job.get('job_uuid')
                 click.echo('Starting Job {}...'.format(job_uuid))
 
-                job_folder = DATA_FOLDER + '/{}'.format(job_uuid)
                 job_requires_gpu = job.get('requires_gpu')
                 job_image_registry_path = job.get('image_registry_path')
                 job_wrapped_code = job.get('wrapped_code')
 
                 processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
-                   config, job_uuid, job_folder, job_requires_gpu, job_image_registry_path,
-                   job_wrapped_code, build_logs, stdout, stderr, result))
+                   config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code))
 
             for job_uuid, process in processes.items():
                 process.start()
@@ -934,9 +908,6 @@ def start(config, job_timeout):
             # We wait 5 seconds until the next check
             time.sleep(5)
 
-    except ObjectNotFoundException as e:
-        click.echo('Not found Instance with UUID {}'.format(instance_uuid))
-        exit(1)
     except (Exception, KeyboardInterrupt) as e:
         click.echo(e)
         click.echo('Instance {} has just stopped!'.format(instance_uuid))
