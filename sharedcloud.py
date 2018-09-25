@@ -650,16 +650,16 @@ def instance(config):
 @instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
 @click.option('--type', required=True, type=click.Choice(['standard', 'gpu']))
-@click.option('--price-per-hour', required=True, type=click.FLOAT)
+@click.option('--price-per-minute', required=True, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', default=1, type=click.INT)
 @pass_obj
-def create(config, name, type, price_per_hour, max_num_parallel_jobs):
-    # sharedcloud instance create --name blabla --type standard --price-per-hour 2.0 --max-num-parallel-jobs 3
+def create(config, name, type, price_per_minute, max_num_parallel_jobs):
+    # sharedcloud instance create --name blabla --type standard --price-per-minute 2.0 --max-num-parallel-jobs 3
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
         'type': INSTANCE_TYPES[type.upper()],
-        'price_per_hour': price_per_hour,
+        'price_per_minute': price_per_minute,
         'max_num_parallel_jobs': max_num_parallel_jobs,
     })
     if r.status_code == 201:
@@ -673,8 +673,8 @@ def create(config, name, type, price_per_hour, max_num_parallel_jobs):
 def list(config):
     _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'price_per_hour', 'type', 'num_running_jobs', 'max_num_parallel_jobs', 'last_connection'],
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION'],
+                   ['uuid', 'name', 'status', 'price_per_minute', 'type', 'num_running_jobs', 'max_num_parallel_jobs', 'last_connection'],
                    mappers={
                        'status': _map_instance_status_to_description,
                        'type': _map_instance_type_to_description,
@@ -686,17 +686,17 @@ def list(config):
 @click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
 @click.option('--type', required=False, type=click.Choice(['standard', 'gpu']))
 @click.option('--name', required=False)
-@click.option('--price-per-hour', required=False, type=click.FLOAT)
+@click.option('--price-per-minute', required=False, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', required=False, type=click.INT)
 @pass_obj
-def update(config, uuid, type, name, price_per_hour, max_num_parallel_jobs):
-    # sharedcloud instance update --name blabla --type standard --price-per-hour 2.0 --max-num-parallel-jobs 3
+def update(config, uuid, type, name, price_per_minute, max_num_parallel_jobs):
+    # sharedcloud instance update --name blabla --type standard --price-per-minute 2.0 --max-num-parallel-jobs 3
 
     _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
         'name': name,
         'type': INSTANCE_TYPES[type.upper()] if type else None,
-        'price_per_hour': price_per_hour,
+        'price_per_minute': price_per_minute,
         'max_num_parallel_jobs': max_num_parallel_jobs,
     })
 

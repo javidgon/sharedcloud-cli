@@ -10,7 +10,7 @@ def test_user_updates_an_instance_successfully():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3
     )
 
@@ -18,7 +18,7 @@ def test_user_updates_an_instance_successfully():
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
         expected_status=['NOT_AVAILABLE'],
-        expected_price_per_hour=['1.5'],
+        expected_price_per_minute=['1.5'],
         expected_num_running_jobs=['0'],
         expected_max_num_parallel_jobs=['3'],
         expected_num_instances=1
@@ -29,7 +29,7 @@ def test_user_updates_an_instance_successfully():
         uuid=instance_uuid,
         name=new_instance_name,
         type=InstanceType.STANDARD,
-        price_per_hour=2.5,
+        price_per_minute=2.5,
         max_num_parallel_jobs=5
     )
 
@@ -37,7 +37,7 @@ def test_user_updates_an_instance_successfully():
         expected_uuid=[instance_uuid],
         expected_name=[new_instance_name],
         expected_status=['NOT_AVAILABLE'],
-        expected_price_per_hour=['2.5'],
+        expected_price_per_minute=['2.5'],
         expected_num_running_jobs=['0'],
         expected_max_num_parallel_jobs=['5'],
         expected_num_instances=1
@@ -52,7 +52,7 @@ def test_user_get_validation_error_when_updating_an_instance_while_being_logged_
     TestWrapper.update_instance_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
         type=InstanceType.STANDARD,
-        price_per_hour=2.5,
+        price_per_minute=2.5,
         max_num_parallel_jobs=5,
         error_code=1,
         msg='You seem to be logged out. Please log in first'
@@ -67,7 +67,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_missing_uuid()
 
     TestWrapper.update_instance_unsuccessfully(
         type=InstanceType.STANDARD,
-        price_per_hour=2.5,
+        price_per_minute=2.5,
         max_num_parallel_jobs=5,
         error_code=2,
         msg='Missing option "--uuid"'
@@ -85,7 +85,7 @@ def test_user_get_validation_error_when_updating_an_unknown_instance():
     TestWrapper.update_instance_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
         type=InstanceType.STANDARD,
-        price_per_hour=2.5,
+        price_per_minute=2.5,
         max_num_parallel_jobs=5,
         error_code=1,
         msg=Message.NO_RESOURCE_FOUND
@@ -103,7 +103,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_type()
         uuid=TestUtils.generate_uuid(),
         name=TestUtils.generate_random_seed(),
         type='blabla',
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3,
         error_code=2,
         msg='Invalid value for "--type"'
@@ -111,7 +111,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_type()
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
-def test_user_get_validation_error_when_updating_an_instance_with_invalid_price_per_hour():
+def test_user_get_validation_error_when_updating_an_instance_with_invalid_price_per_minute():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -120,10 +120,10 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_price_
         uuid=TestUtils.generate_uuid(),
         name=TestUtils.generate_random_seed(),
         type=InstanceType.STANDARD,
-        price_per_hour='blabla',
+        price_per_minute='blabla',
         max_num_parallel_jobs=3,
         error_code=2,
-        msg='Invalid value for "--price-per-hour"'
+        msg='Invalid value for "--price-per-minute"'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
@@ -138,7 +138,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_max_nu
         uuid=TestUtils.generate_uuid(),
         name=TestUtils.generate_random_seed(),
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs='blabla',
         error_code=2,
         msg='Invalid value for "--max-num-parallel-jobs"'

@@ -11,7 +11,7 @@ def test_user_creates_an_instance():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3
     )
 
@@ -19,7 +19,7 @@ def test_user_creates_an_instance():
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
         expected_status=['NOT_AVAILABLE'],
-        expected_price_per_hour=['1.5'],
+        expected_price_per_minute=['1.5'],
         expected_num_running_jobs=['0'],
         expected_max_num_parallel_jobs=['3'],
         expected_num_instances=1
@@ -37,7 +37,7 @@ def test_user_gets_validation_error_when_creating_an_instance_while_being_logged
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3,
         error_code=1,
         msg=Message.YOU_ARE_LOGOUT_WARNING
@@ -51,7 +51,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_name(
 
     TestWrapper.create_instance_unsuccessfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3,
         error_code=2,
         msg='Missing option "--name"'
@@ -65,7 +65,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_type(
 
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3,
         error_code=2,
         msg='Missing option "--type"'
@@ -74,7 +74,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_type(
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
-def test_user_gets_validation_error_when_creating_an_instance_with_missing_price_per_hour():
+def test_user_gets_validation_error_when_creating_an_instance_with_missing_price_per_minute():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -84,7 +84,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_price
         type=InstanceType.STANDARD,
         max_num_parallel_jobs=3,
         error_code=2,
-        msg='Missing option "--price-per-hour"'
+        msg='Missing option "--price-per-minute"'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
@@ -98,14 +98,14 @@ def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
     )
 
     TestWrapper.check_list_instances_output(
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
         expected_status=['NOT_AVAILABLE'],
-        expected_price_per_hour=['1.5'],
+        expected_price_per_minute=['1.5'],
         expected_num_running_jobs=['0'],
         expected_max_num_parallel_jobs=['1'],
         expected_num_instances=1
@@ -125,7 +125,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_type()
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
         type='blabla',
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3,
         error_code=2,
         msg='Invalid value for "--type"'
@@ -133,7 +133,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_type()
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
-def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_per_hour():
+def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_per_minute():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -141,10 +141,10 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
         type=InstanceType.STANDARD,
-        price_per_hour='blabla',
+        price_per_minute='blabla',
         max_num_parallel_jobs=3,
         error_code=2,
-        msg='Invalid value for "--price-per-hour"'
+        msg='Invalid value for "--price-per-minute"'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
@@ -158,7 +158,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_max_nu
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs='blabla',
         error_code=2,
         msg='Invalid value for "--max-num-parallel-jobs"'

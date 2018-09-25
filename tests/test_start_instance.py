@@ -40,7 +40,7 @@ def test_start_instance_can_fetch_a_job_from_another_user():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3
     )
 
@@ -85,7 +85,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3
     )
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
@@ -109,7 +109,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
         expected_status=['AVAILABLE'],
-        expected_price_per_hour=['1.5'],
+        expected_price_per_minute=['1.5'],
         expected_num_running_jobs=['0'],
         expected_max_num_parallel_jobs=['3'],
         expected_num_instances=1

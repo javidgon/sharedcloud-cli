@@ -18,7 +18,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3
     )
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
@@ -42,7 +42,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
         expected_status=['AVAILABLE'],
-        expected_price_per_hour=['1.5'],
+        expected_price_per_minute=['1.5'],
         expected_num_running_jobs=['3'],
         expected_max_num_parallel_jobs=['3'],
         expected_num_instances=1
@@ -117,7 +117,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=2
     )
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
@@ -141,7 +141,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
         expected_status=['AVAILABLE'],
-        expected_price_per_hour=['1.5'],
+        expected_price_per_minute=['1.5'],
         expected_num_running_jobs=['2'],
         expected_max_num_parallel_jobs=['2'],
         expected_num_instances=1

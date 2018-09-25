@@ -313,7 +313,7 @@ class TestUtils:
             cls,
             name=None,
             type=None,
-            price_per_hour=None,
+            price_per_minute=None,
             max_num_parallel_jobs=None):
         config = Config(token=_read_token())
         args =['create']
@@ -324,9 +324,9 @@ class TestUtils:
         if type:
             args.append('--type')
             args.append(type)
-        if price_per_hour:
-            args.append('--price-per-hour')
-            args.append(price_per_hour)
+        if price_per_minute:
+            args.append('--price-per-minute')
+            args.append(price_per_minute)
         if max_num_parallel_jobs:
             args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
@@ -338,7 +338,7 @@ class TestUtils:
             uuid=None,
             name=None,
             type=None,
-            price_per_hour=None,
+            price_per_minute=None,
             max_num_parallel_jobs=None):
         config = Config(token=_read_token())
         args = ['update']
@@ -352,9 +352,9 @@ class TestUtils:
         if type:
             args.append('--type')
             args.append(type)
-        if price_per_hour:
-            args.append('--price-per-hour')
-            args.append(price_per_hour)
+        if price_per_minute:
+            args.append('--price-per-minute')
+            args.append(price_per_minute)
         if max_num_parallel_jobs:
             args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
@@ -766,9 +766,9 @@ class TestWrapper:
         assert msg in r.output
 
     @classmethod
-    def create_instance_successfully(cls, type=None, price_per_hour=None, max_num_parallel_jobs=None):
+    def create_instance_successfully(cls, type=None, price_per_minute=None, max_num_parallel_jobs=None):
         name = TestUtils.generate_random_seed()
-        r = TestUtils.create_instance(name=name, type=type, price_per_hour=price_per_hour,
+        r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
                                       max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == 0
         assert 'has been created' in r.output
@@ -776,25 +776,25 @@ class TestWrapper:
 
     @classmethod
     def create_instance_unsuccessfully(
-            cls, name=None, type=None, price_per_hour=None, max_num_parallel_jobs=None, error_code=None, msg=None):
-        r = TestUtils.create_instance(name=name, type=type, price_per_hour=price_per_hour,
+            cls, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, error_code=None, msg=None):
+        r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
                                       max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == error_code
         assert msg in r.output
 
     @classmethod
     def update_instance_successfully(
-            cls, uuid=None, name=None, type=None, price_per_hour=None, max_num_parallel_jobs=None):
+            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None):
         r = TestUtils.update_instance(
-            uuid=uuid, name=name, type=type, price_per_hour=price_per_hour,
+            uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
             max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == 0
         assert 'was updated' in r.output
 
     @classmethod
     def update_instance_unsuccessfully(
-            cls, uuid=None, name=None, type=None, price_per_hour=None, max_num_parallel_jobs=None, error_code=None, msg=None):
-        r = TestUtils.update_instance(uuid=uuid, name=name, type=type, price_per_hour=price_per_hour,
+            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, error_code=None, msg=None):
+        r = TestUtils.update_instance(uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
                                       max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == error_code
         assert msg in r.output
@@ -816,7 +816,7 @@ class TestWrapper:
                        expected_uuid=None,
                        expected_name=None,
                        expected_status=None,
-                       expected_price_per_hour=None,
+                       expected_price_per_minute=None,
                        expected_type=None,
                        expected_num_running_jobs=None,
                        expected_max_num_parallel_jobs=None,
@@ -824,7 +824,7 @@ class TestWrapper:
                        expected_logout_warning=False
         ):
         config = Config(token=_read_token())
-        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_HOUR', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION']
+        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION']
         r = TestUtils.runner.invoke(instance, [
             'list',
         ], obj=config)
@@ -858,8 +858,8 @@ class TestWrapper:
             if expected_status:
                 assert expected_status[inverse_order] in fields[columns.index('STATUS')]
 
-            if expected_price_per_hour:
-                assert expected_price_per_hour[inverse_order] in fields[columns.index('PRICE_PER_HOUR')]
+            if expected_price_per_minute:
+                assert expected_price_per_minute[inverse_order] in fields[columns.index('PRICE_PER_MINUTE')]
 
             if expected_type:
                 assert expected_type[inverse_order] in fields[columns.index('TYPE')]

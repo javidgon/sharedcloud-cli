@@ -32,7 +32,7 @@ def test_user_wants_to_see_only_the_downloaded_images():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=1
     )
 

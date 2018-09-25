@@ -11,7 +11,7 @@ def test_user_downloads_an_image_successfully():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_hour=1.5,
+        price_per_minute=1.5,
         max_num_parallel_jobs=3
     )
 
