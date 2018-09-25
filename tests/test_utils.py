@@ -186,6 +186,14 @@ class TestUtils:
         return cls.runner.invoke(function, args, obj=config)
 
     # Images
+
+    @classmethod
+    def update_all_images(cls):
+        config = Config(token=_read_token())
+        args = ['update_all']
+
+        return cls.runner.invoke(image, args, obj=config)
+
     @classmethod
     def list_images(cls, only_downloaded=False):
         config = Config(token=_read_token())
@@ -618,6 +626,18 @@ class TestWrapper:
         return r
 
     # Image
+    @classmethod
+    def update_all_images_successfully(cls):
+        r = TestUtils.update_all_images()
+        assert r.exit_code == 0
+        assert 'Pulling from ' in r.output
+
+    @classmethod
+    def update_all_images_unsuccessfully(cls, error_code=None, msg=None):
+        r = TestUtils.update_all_images()
+        assert r.exit_code == error_code
+        assert msg in r.output
+
     @classmethod
     def download_image_successfully(cls, registry_path=None):
         r = TestUtils.download_image(registry_path=registry_path)

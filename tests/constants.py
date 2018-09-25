@@ -14,6 +14,11 @@ class Image:
         'uuid': '1a5111c1-17ee-459f-a4da-9c5272d86b1d',
         'description': 'An image with standard libraries'
     }
+    TENSORFLOW_PYTHON36 = {
+        'path': 'sharedcloud/tensorflow-python36:latest',
+        'uuid': '23ca880b-94fe-472c-b9cf-934ed8295872',
+        'description': 'TensorFlow is an open-source software library for dataflow programming across a range of tasks'
+    }
 
 class Message:
     YOU_ARE_LOGOUT_WARNING = 'You seem to be logged out. Please log in first'

@@ -440,6 +440,34 @@ def download(config, registry_path):
         for line in output.splitlines():
             click.echo(line + b'\n')
 
+
+def _update_all_images(config):
+    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+
+    r = requests.get(
+        '{}/api/v1/images/?instance={}'.format(SHAREDCLOUD_CLI_URL, instance_uuid),
+        headers={'Authorization': 'Token {}'.format(config.token)})
+
+    if r.status_code == 200:
+        images = r.json()
+
+        for image in images:
+            p = subprocess.Popen(
+                ['docker', 'pull', image.get('registry_path')], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, error = p.communicate()
+
+            for line in (output + b'\n' + error).splitlines():
+                click.echo(line + b'\n')
+    else:
+        click.echo(r.content)
+        exit(1)
+
+@image.command(help='Update All downloaded Images')
+@pass_obj
+def update_all(config):
+    # sharedcloud image update_all
+    _update_all_images(config)
+
 @cli1.group(help='Create/Delete/Update/List Functions')
 @pass_obj
 def function(config):
@@ -721,16 +749,12 @@ def delete(config, uuid):
 @pass_obj
 def start(config, job_timeout):
 
-    def _send_job_results(job_uuid, data, token):
+    def _update_job_remotely(job_uuid, data, token):
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
         if r.status_code != 200:
             raise Exception(r.content)
         return r
-
-    def _create_file_from_data(data, to_file):
-        with open(to_file, 'w') as text_file:
-            text_file.write(data)
 
     def _pull_image(job_image_path):
         # TODO: This output should probably be sent to us to analyse it. e.g., docker build errors
@@ -781,23 +805,6 @@ def start(config, job_timeout):
 
         return stdout, stderr, result, has_failed
 
-    def _update_images(token):
-        r = requests.get(
-            '{}/api/v1/images/?instance={}'.format(SHAREDCLOUD_CLI_URL, instance_uuid),
-            headers={'Authorization': 'Token {}'.format(token)})
-
-        if r.status_code == 200:
-            images = r.json()
-
-            for image in images:
-                p = subprocess.Popen(
-                    ['docker', 'pull', image.get('registry_path')], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                output, error = p.communicate()
-
-                for line in (output + b'\n' + error).splitlines():
-                    print(line + b'\n')
-
-
     def _exit_if_docker_daemon_is_not_running():
         p = subprocess.Popen(
             ['docker', 'ps'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -807,7 +814,7 @@ def start(config, job_timeout):
             exit('Is the Docker daemon running in your machine?')
 
     def _report_failure(job_uuid, stdout, stderr, result, build_logs):
-        _send_job_results(
+        _update_job_remotely(
             job_uuid, {
                 "build_logs": build_logs,
                 "stdout": stdout,
@@ -817,7 +824,7 @@ def start(config, job_timeout):
             }, config.token)
 
     def _report_success(job_uuid, stdout, stderr, result, build_logs):
-        _send_job_results(
+        _update_job_remotely(
             job_uuid, {
                 "build_logs": build_logs,
                 "stdout": stdout,
@@ -827,7 +834,7 @@ def start(config, job_timeout):
             }, config.token)
 
     def _report_timeout(job_uuid):
-        _send_job_results(
+        _update_job_remotely(
             job_uuid, {
                 "status": JOB_STATUSES['TIMEOUT']
             }, config.token)
@@ -835,7 +842,7 @@ def start(config, job_timeout):
     def _job_loop(
             config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code):
         # We update the job in the remote, so it doesn't get assigned to other instances
-        _send_job_results(
+        _update_job_remotely(
             job_uuid, {
                 "status": JOB_STATUSES['IN_PROGRESS']
             }, config.token)
@@ -861,8 +868,8 @@ def start(config, job_timeout):
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
-        click.echo('Updating images...')
-        _update_images(config.token)
+        click.echo('Updating all downloaded images...')
+        _update_all_images(config)
 
         click.echo('Ready to take Jobs...')
 
