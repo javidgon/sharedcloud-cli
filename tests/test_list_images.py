@@ -54,6 +54,7 @@ def test_user_wants_to_see_only_the_downloaded_images():
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_wants_to_see_only_the_downloaded_images_but_he_doesnt_have_an_instance():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
@@ -69,6 +70,7 @@ def test_user_wants_to_see_only_the_downloaded_images_but_he_doesnt_have_an_inst
         TestWrapper.delete_account_successfully(uuid=account_uuid)
     else:
         raise AssertionError
+
 
 # Logged out
 

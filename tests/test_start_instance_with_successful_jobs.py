@@ -31,7 +31,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
@@ -50,7 +50,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     TestWrapper.check_list_jobs_output(
         expected_status=['IN_PROGRESS', 'IN_PROGRESS', 'IN_PROGRESS'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.delete_function_unsuccessfully(
@@ -70,7 +70,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     r, job_uuids = TestWrapper.check_list_jobs_output(
         expected_status=['SUCCEEDED', 'SUCCEEDED', 'SUCCEEDED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.check_jobs_attributes(
@@ -106,7 +106,10 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeeding()
+
+
 def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeeding():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
     parameters = '((1,),(2,),(3,))'
@@ -130,7 +133,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
 
     TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
@@ -149,7 +152,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
 
     TestWrapper.check_list_jobs_output(
         expected_status=['IN_PROGRESS', 'IN_PROGRESS', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.delete_function_unsuccessfully(
@@ -169,7 +172,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
 
     r, job_uuids = TestWrapper.check_list_jobs_output(
         expected_status=['SUCCEEDED', 'SUCCEEDED', 'SUCCEEDED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.check_jobs_attributes(

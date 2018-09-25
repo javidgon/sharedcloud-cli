@@ -24,6 +24,7 @@ def test_user_updates_all_images_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_wants_to_update_all_images_without_having_an_instance():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
@@ -31,6 +32,7 @@ def test_user_wants_to_update_all_images_without_having_an_instance():
     TestWrapper.update_all_images_unsuccessfully(error_code=1, msg=Message.NO_INSTANCE_FOUND)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 def test_user_wants_to_update_all_images_without_having_a_downloaded_image():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -48,6 +50,7 @@ def test_user_wants_to_update_all_images_without_having_a_downloaded_image():
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 # Logged out
 def test_user_gets_validation_error_when_trying_to_update_all_images_while_being_logged_out():

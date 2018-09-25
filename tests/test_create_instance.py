@@ -33,6 +33,7 @@ def test_user_creates_an_instance():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_in_the_system():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
@@ -80,7 +81,8 @@ def test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_
     TestWrapper.delete_instance_successfully(uuid=first_instance_uuid)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
-test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_in_the_system()
+
+
 # Logged out
 def test_user_gets_validation_error_when_creating_an_instance_while_being_logged_out():
     TestWrapper.create_instance_unsuccessfully(
@@ -91,6 +93,8 @@ def test_user_gets_validation_error_when_creating_an_instance_while_being_logged
         error_code=1,
         msg=Message.YOU_ARE_LOGOUT_WARNING
     )
+
+
 # Missing fields
 def test_user_gets_validation_error_when_creating_an_instance_with_missing_name():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -105,6 +109,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_name(
         msg='Missing option "--name"'
     )
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 def test_user_gets_validation_error_when_creating_an_instance_with_missing_type():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -163,6 +168,7 @@ def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Invalid Fields
 
 def test_user_get_validation_error_when_creating_an_instance_with_invalid_type():
@@ -180,6 +186,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_type()
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 def test_user_get_validation_error_when_creating_an_instance_with_invalid_price_per_minute():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()

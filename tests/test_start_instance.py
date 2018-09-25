@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+
 import time
 
 from tests.constants import Message, InstanceType, Image
@@ -29,7 +30,7 @@ def test_start_instance_can_fetch_a_job_from_another_user():
 
     TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.logout_successfully()
@@ -67,14 +68,14 @@ def test_start_instance_can_fetch_a_job_from_another_user():
 
     TestWrapper.check_list_jobs_output(
         expected_status=['SUCCEEDED', 'SUCCEEDED', 'SUCCEEDED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
     TestWrapper.delete_account_successfully(uuid=job_owner_account_uuid)
 
-test_start_instance_can_fetch_a_job_from_another_user()
+
 def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
     parameters = '((1,),(2,),(3,))'
@@ -98,7 +99,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
 
     TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
@@ -117,7 +118,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
 
     TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     p.join(3.0)  # 3 seconds of timeout
@@ -130,6 +131,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 # Logout
 def test_user_gets_validation_error_when_trying_to_start_an_instance_logged_out():

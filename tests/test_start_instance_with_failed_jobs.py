@@ -3,7 +3,7 @@ import os
 
 import time
 
-from tests.constants import Image, InstanceType, Message
+from tests.constants import Image, InstanceType
 from tests.test_utils import TestUtils, TestWrapper
 
 
@@ -31,7 +31,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_failing()
 
     TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED', 'CREATED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
@@ -39,14 +39,14 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_failing()
     time.sleep(5)
     TestWrapper.check_list_jobs_output(
         expected_status=['IN_PROGRESS', 'IN_PROGRESS', 'IN_PROGRESS'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
     p.join(30.0)  # 30 seconds of timeout
     p.terminate()
 
     r, job_uuids = TestWrapper.check_list_jobs_output(
         expected_status=['FAILED', 'FAILED', 'FAILED'],
-        expected_num_jobs = 3
+        expected_num_jobs=3
     )
 
     TestWrapper.check_jobs_attributes(

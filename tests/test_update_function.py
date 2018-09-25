@@ -30,6 +30,7 @@ def test_user_updates_a_function_with_code_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_updates_a_function_with_file_successfully():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
@@ -55,6 +56,7 @@ def test_user_updates_a_function_with_file_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Logged out
 def test_user_get_validation_error_when_updating_a_function_while_being_logged_out():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
@@ -79,6 +81,7 @@ def test_user_get_validation_error_when_updating_a_function_with_missing_uuid():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Invalid Fields
 def test_user_get_validation_error_when_updating_an_unknown_function():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
@@ -94,6 +97,7 @@ def test_user_get_validation_error_when_updating_an_unknown_function():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_get_validation_error_when_updating_a_function_with_invalid_code():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
@@ -105,10 +109,12 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_code():
         image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
 
     TestWrapper.update_function_unsuccessfully(
-        uuid=function_uuid, name=TestUtils.generate_random_seed(), image_uuid=Image.STANDARD_NODE8['uuid'], file=file, error_code=1,
+        uuid=function_uuid, name=TestUtils.generate_random_seed(), image_uuid=Image.STANDARD_NODE8['uuid'], file=file,
+        error_code=1,
         msg='needs to have the following signature')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 def test_user_get_validation_error_when_updating_a_function_with_invalid_image_uuid():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
@@ -122,5 +128,3 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_image_u
         msg='Invalid value for "--image-uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
-
-

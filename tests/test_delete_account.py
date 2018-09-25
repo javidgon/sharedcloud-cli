@@ -18,6 +18,7 @@ def test_user_get_validation_error_when_deleting_an_account_while_being_logged_o
         uuid=TestUtils.generate_uuid(),
         error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
 
+
 # Missing fields
 def test_user_get_validation_error_when_deleting_an_account_with_missing_uuid():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()

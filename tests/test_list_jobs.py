@@ -21,7 +21,7 @@ def test_user_sees_the_list_of_jobs_successfully():
 
     _, uuids = TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED'],
-        expected_num_jobs = 2,
+        expected_num_jobs=2,
     )
 
     TestWrapper.delete_run_successfully(uuid=run_uuid)
@@ -29,6 +29,7 @@ def test_user_sees_the_list_of_jobs_successfully():
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 # Logged out
 def test_user_gets_validation_error_when_listing_jobs_while_being_logged_out():

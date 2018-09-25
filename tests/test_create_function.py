@@ -27,6 +27,7 @@ def test_user_creates_a_function_with_code_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_creates_a_function_with_file_successfully():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
@@ -48,6 +49,7 @@ def test_user_creates_a_function_with_file_successfully():
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 # Logged out
 def test_user_get_validation_error_when_creating_a_function_while_being_logged_out():

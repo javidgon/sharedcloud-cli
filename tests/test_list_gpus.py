@@ -1,6 +1,3 @@
-import os
-
-from tests.constants import Image
 from tests.test_utils import TestWrapper
 
 
@@ -21,10 +18,11 @@ def test_user_sees_the_list_of_gpus_successfully():
             '1070',
             '1060'
         ],
-        expected_num_gpus = 8,
+        expected_num_gpus=8,
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 # Logged out
 def test_user_gets_validation_error_when_listing_gpus_while_being_logged_out():

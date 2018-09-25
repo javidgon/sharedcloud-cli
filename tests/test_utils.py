@@ -1,8 +1,7 @@
-import os
 import random
 import re
-import uuid
 
+import uuid
 from click.testing import CliRunner
 
 from sharedcloud import cli1, _read_token, function, run, instance, job, account, image, gpu
@@ -12,6 +11,7 @@ from tests.constants import Message
 class Config():
     def __init__(self, token):
         self.token = token
+
 
 class TestUtils:
     runner = CliRunner()
@@ -44,10 +44,10 @@ class TestUtils:
 
     @classmethod
     def update_account(cls,
-                        uuid=None,
-                        email=None,
-                        username=None,
-                        password=None):
+                       uuid=None,
+                       email=None,
+                       username=None,
+                       password=None):
         config = Config(token=_read_token())
         args = ['update']
 
@@ -82,7 +82,6 @@ class TestUtils:
         return cls.runner.invoke(account, [
             'list',
         ], obj=config)
-
 
     @classmethod
     def login(
@@ -205,7 +204,7 @@ class TestUtils:
 
     @classmethod
     def download_image(cls,
-        registry_path=None):
+                       registry_path=None):
         config = Config(token=_read_token())
         args = ['download']
 
@@ -217,7 +216,7 @@ class TestUtils:
 
     @classmethod
     def clean_image(cls,
-        registry_path=None):
+                    registry_path=None):
         config = Config(token=_read_token())
         args = ['clean']
 
@@ -243,7 +242,7 @@ class TestUtils:
             base_gpu_uuid=None
     ):
         config = Config(token=_read_token())
-        args =['create']
+        args = ['create']
 
         if function_uuid:
             args.append('--function-uuid')
@@ -337,7 +336,7 @@ class TestUtils:
             price_per_minute=None,
             max_num_parallel_jobs=None):
         config = Config(token=_read_token())
-        args =['create']
+        args = ['create']
 
         if name:
             args.append('--name')
@@ -394,7 +393,7 @@ class TestUtils:
     @classmethod
     def start_instance(cls, job_timeout=None):
         config = Config(token=_read_token())
-        args =['start']
+        args = ['start']
 
         if job_timeout:
             args.append('--job-timeout')
@@ -540,7 +539,6 @@ class TestWrapper:
         assert r.exit_code == error_code
         assert msg in r.output
 
-
     # Function
     @classmethod
     def create_function_successfully(cls, image_uuid=None, code=None, file=None):
@@ -550,7 +548,8 @@ class TestWrapper:
         return TestUtils.extract_uuid(r.output), name
 
     @classmethod
-    def create_function_unsuccessfully(cls, name=None, image_uuid=None, code=None, file=None, error_code=None, msg=None):
+    def create_function_unsuccessfully(cls, name=None, image_uuid=None, code=None, file=None, error_code=None,
+                                       msg=None):
         r = TestUtils.create_function(name=name, image_uuid=image_uuid, code=code, file=file)
         assert r.exit_code == error_code
         assert msg in r.output
@@ -561,7 +560,8 @@ class TestWrapper:
         assert r.exit_code == 0
 
     @classmethod
-    def update_function_unsuccessfully(cls, uuid=None, name=None, image_uuid=None, code=None, file=None, error_code=None, msg=None):
+    def update_function_unsuccessfully(cls, uuid=None, name=None, image_uuid=None, code=None, file=None,
+                                       error_code=None, msg=None):
         r = TestUtils.update_function(uuid=uuid, name=name, image_uuid=image_uuid, code=code, file=file)
         assert r.exit_code == error_code
         assert msg in r.output
@@ -615,7 +615,7 @@ class TestWrapper:
         # Due to the inverse order (last resources are displayed in the first positions of the list),
         # we check the expectations in the opposite order
         for idx, row in enumerate(rows):
-            inverse_idx = num_rows-(idx+1)
+            inverse_idx = num_rows - (idx + 1)
             fields = [field for field in row.split('  ') if field]
 
             if expected_uuid:
@@ -672,15 +672,15 @@ class TestWrapper:
 
     @classmethod
     def check_list_images_output(
-        cls,
-        only_downloaded=False,
-        expected_registry_path=None,
-        expected_description=None,
-        expected_requires_gpu=None,
-        expected_num_images=None,
-        expected_logout_warning=False
+            cls,
+            only_downloaded=False,
+            expected_registry_path=None,
+            expected_description=None,
+            expected_requires_gpu=None,
+            expected_num_images=None,
+            expected_logout_warning=False
     ):
-        columns = ['UUID', 'REGISTRY_PATH', 'DESCRIPTION',  'REQUIRES_GPU', 'WHEN']
+        columns = ['UUID', 'REGISTRY_PATH', 'DESCRIPTION', 'REQUIRES_GPU', 'WHEN']
         r = TestUtils.list_images(only_downloaded=only_downloaded)
         if expected_logout_warning:
             assert r.exit_code == 1
@@ -701,7 +701,7 @@ class TestWrapper:
         for idx, row in enumerate(rows):
             image_uuids.append(TestUtils.extract_uuid(row))
 
-            inverse_order = num_rows-(idx+1)
+            inverse_order = num_rows - (idx + 1)
             fields = [field for field in row.split('  ') if field]
 
             if expected_registry_path:
@@ -743,13 +743,13 @@ class TestWrapper:
 
     @classmethod
     def check_list_runs_output(cls,
-                  expected_uuid=None,
-                  expected_parameters=None,
-                  expected_base_gpu=None,
-                  expected_function=None,
-                  expected_num_runs=None,
-                  expected_logout_warning=False
-    ):
+                               expected_uuid=None,
+                               expected_parameters=None,
+                               expected_base_gpu=None,
+                               expected_function=None,
+                               expected_num_runs=None,
+                               expected_logout_warning=False
+                               ):
         columns = ['UUID', 'PARAMETERS', 'BASE_GPU', 'FUNCTION', 'WHEN']
         r = TestUtils.list_runs()
         if expected_logout_warning:
@@ -770,7 +770,7 @@ class TestWrapper:
             assert num_rows == expected_num_runs
 
         for idx, row in enumerate(rows):
-            inverse_order = num_rows-(idx+1)
+            inverse_order = num_rows - (idx + 1)
             fields = [field for field in row.split('  ') if field]
 
             if expected_uuid:
@@ -821,7 +821,8 @@ class TestWrapper:
 
     @classmethod
     def update_instance_unsuccessfully(
-            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, error_code=None, msg=None):
+            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, error_code=None,
+            msg=None):
         r = TestUtils.update_instance(uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
                                       max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == error_code
@@ -840,18 +841,19 @@ class TestWrapper:
 
     @classmethod
     def check_list_instances_output(cls,
-                       expected_uuid=None,
-                       expected_name=None,
-                       expected_status=None,
-                       expected_price_per_minute=None,
-                       expected_type=None,
-                       expected_num_running_jobs=None,
-                       expected_max_num_parallel_jobs=None,
-                       expected_num_instances=None,
-                       expected_logout_warning=False
-        ):
+                                    expected_uuid=None,
+                                    expected_name=None,
+                                    expected_status=None,
+                                    expected_price_per_minute=None,
+                                    expected_type=None,
+                                    expected_num_running_jobs=None,
+                                    expected_max_num_parallel_jobs=None,
+                                    expected_num_instances=None,
+                                    expected_logout_warning=False
+                                    ):
         config = Config(token=_read_token())
-        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS' ,'LAST_CONNECTION']
+        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
+                   'LAST_CONNECTION']
         r = TestUtils.runner.invoke(instance, [
             'list',
         ], obj=config)
@@ -873,7 +875,7 @@ class TestWrapper:
             assert num_rows == expected_num_instances
 
         for idx, row in enumerate(rows):
-            inverse_order = num_rows-(idx+1)
+            inverse_order = num_rows - (idx + 1)
             fields = [field for field in row.split('  ') if field]
 
             if expected_uuid:
@@ -902,11 +904,11 @@ class TestWrapper:
     # GPU
     @classmethod
     def check_list_gpus_output(cls,
-                  expected_name=None,
-                  expected_codename=None,
-                  expected_logout_warning=False,
-                  expected_num_gpus=None
-    ):
+                               expected_name=None,
+                               expected_codename=None,
+                               expected_logout_warning=False,
+                               expected_num_gpus=None
+                               ):
         columns = ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES']
         r = TestUtils.list_gpus()
         if expected_logout_warning:
@@ -940,10 +942,10 @@ class TestWrapper:
     # Job
     @classmethod
     def check_list_jobs_output(cls,
-                  expected_status=None,
-                  expected_num_jobs=None,
-                  expected_logout_warning=False
-    ):
+                               expected_status=None,
+                               expected_num_jobs=None,
+                               expected_logout_warning=False
+                               ):
         columns = ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION']
         r = TestUtils.list_jobs()
         if expected_logout_warning:
@@ -964,7 +966,7 @@ class TestWrapper:
 
         for idx, row in enumerate(rows):
             job_uuids.append(TestUtils.extract_uuid(row))
-            inverse_order = num_rows-(idx+1)
+            inverse_order = num_rows - (idx + 1)
             fields = [field for field in row.split('  ') if field]
 
             if expected_status:
@@ -976,7 +978,7 @@ class TestWrapper:
     def check_jobs_attributes(cls, uuids=None, expected_logs=None, expected_results=None,
                               expected_stdouts=None, expected_stderrs=None):
         for idx, uuid in enumerate(uuids):
-            inverse_order = len(uuids)-(idx+1)
+            inverse_order = len(uuids) - (idx + 1)
 
             if expected_logs:
                 r = TestUtils.get_logs_for_job(uuid)

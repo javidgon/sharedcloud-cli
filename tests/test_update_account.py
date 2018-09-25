@@ -13,7 +13,7 @@ def test_user_updates_his_account_successfully():
         expected_username=[username],
         expected_balance_is_zero=True
     )
-    new_email, new_username, new_password= TestUtils.generate_credentials()
+    new_email, new_username, new_password = TestUtils.generate_credentials()
     TestWrapper.update_account_successfully(
         uuid=account_uuid,
         email=new_email,
@@ -31,6 +31,7 @@ def test_user_updates_his_account_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Logged out
 def test_user_gets_validation_error_when_updating_an_account_while_being_logged_out():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -47,9 +48,10 @@ def test_user_gets_validation_error_when_updating_an_account_while_being_logged_
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Missing fields
 
-#Invalid Fields
+# Invalid Fields
 def test_user_gets_validation_error_when_creating_an_account_with_invalid_password():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 

@@ -31,11 +31,13 @@ def test_delete_run_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Logged out
 def test_user_get_validation_error_when_deleting_a_run_while_being_logged_out():
     TestWrapper.delete_run_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
         error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
+
 
 # Missing fields
 def test_user_get_validation_error_when_deleting_a_run_with_missing_uuid():

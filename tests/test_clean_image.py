@@ -21,6 +21,7 @@ def test_user_cleans_an_image_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_wants_to_clean_an_image_without_having_an_instance():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
@@ -37,6 +38,7 @@ def test_user_gets_validation_error_when_trying_to_clean_an_image_while_being_lo
     TestWrapper.clean_image_unsuccessfully(
         registry_path=Image.WEB_CRAWLING_PYTHON36['path'], error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
 
+
 # Missing fields
 def test_user_gets_validation_error_when_cleaning_an_image_without_registry_path():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -46,6 +48,5 @@ def test_user_gets_validation_error_when_cleaning_an_image_without_registry_path
     TestWrapper.clean_image_unsuccessfully(error_code=2, msg='Missing option "--registry-path"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
-
 
 # Invalid fields

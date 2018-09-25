@@ -35,6 +35,7 @@ def test_user_creates_a_run_without_gpu_requirements_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_creates_a_run_with_gpu_requirements_successfully():
     parameter = '((1,),(2,))'
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
@@ -66,6 +67,7 @@ def test_user_creates_a_run_with_gpu_requirements_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
@@ -90,6 +92,7 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Logged out
 def test_user_get_validation_error_when_creating_a_run_while_being_logged_out():
     parameter = '((1,),(2,))'
@@ -112,7 +115,6 @@ def test_user_get_validation_error_when_creating_a_run_with_missing_function_uui
         error_code=2, msg='Missing option "--function-uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
-
 
 
 def test_user_get_validation_error_when_creating_a_run_with_missing_parameters():

@@ -47,6 +47,7 @@ def test_user_updates_an_instance_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Logged out
 def test_user_get_validation_error_when_updating_an_instance_while_being_logged_out():
     TestWrapper.update_instance_unsuccessfully(
@@ -93,7 +94,10 @@ def test_user_get_validation_error_when_updating_an_unknown_instance():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 test_user_get_validation_error_when_updating_an_unknown_instance()
+
+
 def test_user_get_validation_error_when_updating_an_instance_with_invalid_type():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
@@ -110,6 +114,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_type()
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 def test_user_get_validation_error_when_updating_an_instance_with_invalid_price_per_minute():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()

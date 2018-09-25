@@ -15,10 +15,12 @@ def test_delete_instance_successfully():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+
 # Logged out
 def test_user_get_validation_error_when_deleting_an_instance_while_being_logged_out():
     TestWrapper.delete_instance_unsuccessfully(
         uuid=TestUtils.generate_random_seed(), error_code=1, msg=Message.YOU_ARE_LOGOUT_WARNING)
+
 
 # Missing fields
 def test_user_get_validation_error_when_deleting_an_instance_with_missing_uuid():
@@ -29,6 +31,7 @@ def test_user_get_validation_error_when_deleting_an_instance_with_missing_uuid()
     TestWrapper.delete_instance_unsuccessfully(error_code=2, msg='Missing option "--uuid"')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
+
 
 # Invalid Fields
 def test_user_get_validation_error_when_deleting_an_instance_with_invalid_uuid():

@@ -1,4 +1,4 @@
-from tests.test_utils import TestUtils, TestWrapper
+from tests.test_utils import TestWrapper
 
 
 # Workflow
@@ -21,7 +21,6 @@ def test_user_gets_validation_error_when_listing_an_account_while_being_logged_o
     TestWrapper.check_account_output(
         expected_logout_warning=True
     )
-
 
 # Missing fields
 
