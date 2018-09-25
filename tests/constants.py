@@ -21,9 +21,12 @@ class Image:
     }
 
 class Message:
+    LOGIN_SUCCEEDED = 'Login Succeeded'
+    LOGOUT_SUCCEEDED = 'Logout Succeeded'
     YOU_ARE_LOGOUT_WARNING = 'You seem to be logged out. Please log in first'
-    NO_INSTANCE_FOUND = 'We couldn\'t find an instance in this computer'
-    NO_RESOURCE_FOUND = 'Not found resource'
+    ALREADY_LOGGED_OUT = 'You are already logged out'
+    NO_INSTANCE_FOUND = 'Instance not found in this computer'
+    NO_RESOURCE_FOUND = 'Not found resource with this UUID'
     JOBS_STILL_RUNNING = 'Please wait until they are finished'
 
 

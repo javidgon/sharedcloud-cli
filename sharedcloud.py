@@ -69,7 +69,7 @@ def _exit_if_user_is_logged_out(token):
 def _get_instance_uuid_or_exit_if_there_is_none():
     instance_uuid = _read_instance_uuid()
     if not instance_uuid:
-        click.echo('We couldn\'t find an instance in this computer')
+        click.echo('Instance not found in this computer')
         exit(1)
     return instance_uuid
 
@@ -92,7 +92,7 @@ def _create_resource(url, token, data):
 
     if r.status_code == 201:
         resource = r.json()
-        click.echo('Resource with UUID {} has been created.'.format(resource.get('uuid')))
+        click.echo(resource.get('uuid'))
     else:
         click.echo(r.content)
         exit(1)
@@ -112,10 +112,12 @@ def _list_resource(url, token, headers, keys, mappers=None):
         click.echo(tabulate(
             [[_get_data(resource, key, token) for key in keys] for resource in resources],
             headers=headers))
+    elif r.status_code == 404:
+        click.echo('Not found resource with this UUID')
+        exit(1)
     else:
         click.echo(r.content)
         exit(1)
-
     return r
 
 
@@ -142,9 +144,9 @@ def _update_resource(url, token, data):
     r = requests.patch(url, data=cleaned_data, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
-        click.echo('Resource with UUID {} was updated.'.format(data.get('uuid')))
+        click.echo(data.get('uuid'))
     elif r.status_code == 404:
-        click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+        click.echo('Not found resource with this UUID')
         exit(1)
     else:
         click.echo(r.content)
@@ -156,9 +158,9 @@ def _delete_resource(url, token, data):
     r = requests.delete(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 204:
-        click.echo('Resource with UUID {} was deleted.'.format(data.get('uuid')))
+        click.echo(data.get('uuid'))
     elif r.status_code == 404:
-        click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+        click.echo('Not found resource with this UUID')
         exit(1)
     else:
         click.echo(r.content)
@@ -173,10 +175,12 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
     r = requests.patch('{}/api/v1/instances/{}/{}/'.format(SHAREDCLOUD_CLI_URL, instance_uuid, action),
                      data=data, headers={'Authorization': 'Token {}'.format(token)})
 
-    if r.status_code == 404:
-        click.echo('Not found resource with UUID {}.'.format(data.get('uuid')))
+    if r.status_code == 200:
+        click.echo(data.get('uuid'))
+    elif r.status_code == 404:
+        click.echo('Not found resource with this UUID')
         exit(1)
-    elif r.status_code != 200:
+    else:
         click.echo(r.content)
         exit(1)
     return r
@@ -278,10 +282,6 @@ def create(config, email, username, password):
         'username': username,
         'password': password
     })
-    click.echo('')
-    click.echo('Welcome aboard! Why you just don\'t start by creating a function?')
-    click.echo('>>> sharedcloud function create --name helloWorld --image <image_uuid> --code "def handler(event): print(\'HelloWorld\')"')
-    click.echo('')
 
 
 @account.command(help='Updates an Account')
@@ -341,6 +341,7 @@ def _login(username, password):
     })
 
     if r.status_code == 200:
+        click.echo('Login Succeeded')
         result = r.json()
         with open(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME, 'w+') as f:
             f.write(result.get('token'))
@@ -359,10 +360,10 @@ def login(username, password):
 
 def _logout():
     if os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
-        click.echo('You have been logged out.')
+        click.echo('Logout Succeeded')
         os.remove(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME)
     else:
-        click.echo('You were already logged out.')
+        click.echo('You are already logged out')
         exit(1)
 
 
@@ -496,15 +497,7 @@ def create(config, name, image_uuid, file, code):
         'image': image_uuid,
         'code': code
     })
-    resource = r.json()
-    function_uuid = resource.get('uuid')
-    click.echo('')
-    click.echo('Congrats! Now you have the following options to run your function:')
-    click.echo('1) CLI: sharedcloud run create --function-uuid {} --parameters <parameters>'.format(function_uuid))
-    click.echo('2) REST endpoint: {}/api/v1/runs/ (POST)'.format(SHAREDCLOUD_CLI_URL))
-    click.echo('\t\t BODY: {"function": "' + function_uuid + '", "parameters": <parameters>}')
-    click.echo('\t\t HEADER: "Authorization: Token {}"'.format(config.token))
-    click.echo('')
+
 
 @function.command(help='Update a Function')
 @click.option('--uuid', required=True, type=click.UUID)
@@ -690,6 +683,7 @@ def create(config, name, type, price_per_minute, max_num_parallel_jobs):
         'price_per_minute': price_per_minute,
         'max_num_parallel_jobs': max_num_parallel_jobs,
     })
+
     if r.status_code == 201:
         instance = r.json()
         with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'w') as f:
@@ -864,7 +858,6 @@ def start(config, job_timeout):
 
     # sharedcloud instance start --uuid <uuid>
 
-    job_uuid = None
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
@@ -908,9 +901,6 @@ def start(config, job_timeout):
 
             if num_jobs > 0:
                 click.echo('All jobs were completed!')
-
-            # We reset the current job_uuid, as everything was processed successfully
-            job_uuid = None
 
             # We wait 5 seconds until the next check
             time.sleep(5)

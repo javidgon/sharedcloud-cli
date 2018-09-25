@@ -12,19 +12,21 @@ def test_user_sees_the_list_of_images_successfully():
         expected_registry_path=[
             Image.STANDARD_NODE8['path'],
             Image.WEB_CRAWLING_PYTHON27['path'],
-            Image.WEB_CRAWLING_PYTHON36['path']
+            Image.TENSORFLOW_PYTHON36['path'],
+            Image.WEB_CRAWLING_PYTHON36['path'],
         ],
         expected_description=[
             Image.STANDARD_NODE8['description'],
             Image.WEB_CRAWLING_PYTHON27['description'],
+            Image.TENSORFLOW_PYTHON36['description'],
             Image.WEB_CRAWLING_PYTHON36['description'],
         ],
-        expected_num_images=3
+        expected_num_images=4
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
-test_user_sees_the_list_of_images_successfully()
+
 def test_user_wants_to_see_only_the_downloaded_images():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 

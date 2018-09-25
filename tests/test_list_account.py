@@ -1,8 +1,7 @@
 from tests.test_utils import TestUtils, TestWrapper
 
 
-# Workflows
-
+# Workflow
 def test_user_sees_his_account_information_successfully():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 

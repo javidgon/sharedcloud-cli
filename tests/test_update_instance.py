@@ -55,7 +55,7 @@ def test_user_get_validation_error_when_updating_an_instance_while_being_logged_
         price_per_minute=2.5,
         max_num_parallel_jobs=5,
         error_code=1,
-        msg='You seem to be logged out. Please log in first'
+        msg=Message.YOU_ARE_LOGOUT_WARNING
     )
 
 

@@ -4,7 +4,7 @@ from tests.constants import Image
 from tests.test_utils import TestWrapper
 
 
-# Workflows
+# Workflow
 def test_user_sees_the_list_of_jobs_successfully():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
     parameter = '((1,),(2,))'

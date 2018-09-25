@@ -422,7 +422,6 @@ class TestWrapper:
 
         r = TestUtils.create_account(email=email, username=username, password=password)
         assert r.exit_code == 0
-        assert 'has been created' in r.output
         return TestUtils.extract_uuid(r.output), email, username, password
 
     @classmethod
@@ -431,7 +430,6 @@ class TestWrapper:
 
         r = TestUtils.create_account(email=email, username=username, password=password)
         assert r.exit_code == 0
-        assert 'has been created' in r.output
         return TestUtils.extract_uuid(r.output), email, username, password
 
     @classmethod
@@ -444,8 +442,7 @@ class TestWrapper:
     def update_account_successfully(cls, uuid=None, email=None, username=None, password=None):
         r = TestUtils.update_account(uuid=uuid, email=email, username=username, password=password)
         assert r.exit_code == 0
-        assert 'was updated' in r.output
-        assert 'You have been logged out' in r.output
+        assert Message.LOGOUT_SUCCEEDED in r.output
 
     @classmethod
     def update_account_unsuccessfully(
@@ -458,7 +455,6 @@ class TestWrapper:
     def delete_account_successfully(cls, uuid=None):
         r = TestUtils.delete_account(uuid=uuid)
         assert r.exit_code == 0
-        assert 'was deleted' in r.output
 
     @classmethod
     def delete_account_unsuccessfully(cls, uuid=None, error_code=None, msg=None):
@@ -511,17 +507,19 @@ class TestWrapper:
     def logout_successfully(cls):
         r = TestUtils.logout()
         assert r.exit_code == 0
+        assert Message.LOGOUT_SUCCEEDED in r.output
 
     @classmethod
     def logout_unsuccessfully(cls):
         r = TestUtils.logout()
         assert r.exit_code == 1
-        assert 'You were already logged out' in r.output
+        assert Message.ALREADY_LOGGED_OUT in r.output
 
     @classmethod
     def login_successfully(cls, username=None, password=None):
         r = TestUtils.login(username=username, password=password)
         assert r.exit_code == 0
+        assert Message.LOGIN_SUCCEEDED in r.output
 
     @classmethod
     def login_unsuccessfully(cls, username=None, password=None, error_code=None, msg=None):
@@ -536,7 +534,6 @@ class TestWrapper:
         name = TestUtils.generate_random_seed()
         r = TestUtils.create_function(name=name, image_uuid=image_uuid, code=code, file=file)
         assert r.exit_code == 0
-        assert 'has been created' in r.output
         return TestUtils.extract_uuid(r.output), name
 
     @classmethod
@@ -549,7 +546,6 @@ class TestWrapper:
     def update_function_successfully(cls, uuid=None, name=None, image_uuid=None, code=None, file=None):
         r = TestUtils.update_function(uuid=uuid, name=name, image_uuid=image_uuid, code=code, file=file)
         assert r.exit_code == 0
-        assert 'was updated' in r.output
 
     @classmethod
     def update_function_unsuccessfully(cls, uuid=None, name=None, image_uuid=None, code=None, file=None, error_code=None, msg=None):
@@ -561,7 +557,6 @@ class TestWrapper:
     def delete_function_successfully(cls, uuid=None):
         r = TestUtils.delete_function(uuid=uuid)
         assert r.exit_code == 0
-        assert 'was deleted' in r.output
 
     @classmethod
     def delete_function_unsuccessfully(cls, uuid=None, error_code=None, msg=None):
@@ -712,7 +707,6 @@ class TestWrapper:
     def create_run_successfully(cls, function_uuid=None, parameters=None):
         r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters)
         assert r.exit_code == 0
-        assert 'has been created' in r.output
         return TestUtils.extract_uuid(r.output)
 
     @classmethod
@@ -726,7 +720,6 @@ class TestWrapper:
     def delete_run_successfully(cls, uuid=None):
         r = TestUtils.delete_run(uuid=uuid)
         assert r.exit_code == 0
-        assert 'was deleted' in r.output
 
     @classmethod
     def delete_run_unsuccessfully(
@@ -791,7 +784,6 @@ class TestWrapper:
         r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
                                       max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == 0
-        assert 'has been created' in r.output
         return TestUtils.extract_uuid(r.output), name
 
     @classmethod
@@ -809,7 +801,6 @@ class TestWrapper:
             uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
             max_num_parallel_jobs=max_num_parallel_jobs)
         assert r.exit_code == 0
-        assert 'was updated' in r.output
 
     @classmethod
     def update_instance_unsuccessfully(
@@ -823,7 +814,6 @@ class TestWrapper:
     def delete_instance_successfully(cls, uuid=None):
         r = TestUtils.delete_instance(uuid=uuid)
         assert r.exit_code == 0
-        assert 'was deleted' in r.output
 
     @classmethod
     def delete_instance_unsuccessfully(cls, uuid=None, error_code=None, msg=None):
