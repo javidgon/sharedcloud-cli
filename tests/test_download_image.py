@@ -1,4 +1,4 @@
-from tests.constants import InstanceType, Image, Message
+from tests.constants import InstanceType, Image, Message, Gpu
 from tests.test_utils import TestWrapper
 
 
@@ -31,12 +31,14 @@ def test_user_downloads_an_image_successfully_with_a_gpu_instance():
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.GPU,
         price_per_minute=1.5,
-        max_num_parallel_jobs=3
+        max_num_parallel_jobs=3,
+        gpu_uuid=Gpu.TITAN_V_12GB['uuid']
     )
 
     TestWrapper.download_image_successfully(registry_path=Image.TENSORFLOW_PYTHON36['path'])
 
-    TestWrapper.clean_image_successfully(registry_path=Image.TENSORFLOW_PYTHON36['path'])
+    # Here we can do the exception of not cleaning the image because it's huge in size
+    #TestWrapper.clean_image_successfully(registry_path=Image.TENSORFLOW_PYTHON36['path'])
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
@@ -84,7 +86,8 @@ def test_user_gets_validation_error_trying_to_download_a_non_gpu_image_in_a_gpu_
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.GPU,
         price_per_minute=1.5,
-        max_num_parallel_jobs=3
+        max_num_parallel_jobs=3,
+        gpu_uuid=Gpu.TITAN_V_12GB['uuid']
     )
 
     TestWrapper.download_image_unsuccessfully(

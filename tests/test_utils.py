@@ -252,8 +252,8 @@ class TestUtils:
             args.append(parameters)
         if base_gpu_uuid:
             args.append('--base-gpu-uuid')
+            args.append(base_gpu_uuid)
 
-        args.append(parameters)
         return cls.runner.invoke(run, args, obj=config)
 
     @classmethod
@@ -334,7 +334,9 @@ class TestUtils:
             name=None,
             type=None,
             price_per_minute=None,
-            max_num_parallel_jobs=None):
+            max_num_parallel_jobs=None,
+            gpu_uuid=None,
+    ):
         config = Config(token=_read_token())
         args = ['create']
 
@@ -350,6 +352,10 @@ class TestUtils:
         if max_num_parallel_jobs:
             args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
+        if gpu_uuid:
+            args.append('--gpu-uuid')
+            args.append(gpu_uuid)
+
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
@@ -359,7 +365,9 @@ class TestUtils:
             name=None,
             type=None,
             price_per_minute=None,
-            max_num_parallel_jobs=None):
+            max_num_parallel_jobs=None,
+            gpu_uuid=None
+    ):
         config = Config(token=_read_token())
         args = ['update']
 
@@ -378,6 +386,9 @@ class TestUtils:
         if max_num_parallel_jobs:
             args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
+        if gpu_uuid:
+            args.append('--gpu-uuid')
+            args.append(gpu_uuid)
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
@@ -724,8 +735,8 @@ class TestWrapper:
 
     @classmethod
     def create_run_unsuccessfully(
-            cls, function_uuid=None, parameters=None, error_code=None, msg=None):
-        r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters)
+            cls, function_uuid=None, parameters=None, base_gpu_uuid=None, error_code=None, msg=None):
+        r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters, base_gpu_uuid=base_gpu_uuid)
         assert r.exit_code == error_code
         assert msg in r.output
 
@@ -796,35 +807,35 @@ class TestWrapper:
         assert msg in r.output
 
     @classmethod
-    def create_instance_successfully(cls, type=None, price_per_minute=None, max_num_parallel_jobs=None):
+    def create_instance_successfully(cls, type=None, price_per_minute=None, max_num_parallel_jobs=None, gpu_uuid=None):
         name = TestUtils.generate_random_seed()
         r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
-                                      max_num_parallel_jobs=max_num_parallel_jobs)
+                                      max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == 0
         return TestUtils.extract_uuid(r.output), name
 
     @classmethod
     def create_instance_unsuccessfully(
-            cls, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, error_code=None, msg=None):
+            cls, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, gpu_uuid=None, error_code=None, msg=None):
         r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
-                                      max_num_parallel_jobs=max_num_parallel_jobs)
+                                      max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == error_code
         assert msg in r.output
 
     @classmethod
     def update_instance_successfully(
-            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None):
+            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, gpu_uuid=None):
         r = TestUtils.update_instance(
             uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
-            max_num_parallel_jobs=max_num_parallel_jobs)
+            max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == 0
 
     @classmethod
     def update_instance_unsuccessfully(
-            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, error_code=None,
-            msg=None):
+            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None,
+            gpu_uuid=None, error_code=None, msg=None):
         r = TestUtils.update_instance(uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
-                                      max_num_parallel_jobs=max_num_parallel_jobs)
+                                      max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == error_code
         assert msg in r.output
 
@@ -848,11 +859,12 @@ class TestWrapper:
                                     expected_type=None,
                                     expected_num_running_jobs=None,
                                     expected_max_num_parallel_jobs=None,
+                                    expected_gpu=None,
                                     expected_num_instances=None,
                                     expected_logout_warning=False
                                     ):
         config = Config(token=_read_token())
-        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
+        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'GPU', 'RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
                    'LAST_CONNECTION']
         r = TestUtils.runner.invoke(instance, [
             'list',
@@ -894,10 +906,13 @@ class TestWrapper:
                 assert expected_type[inverse_order] in fields[columns.index('TYPE')]
 
             if expected_num_running_jobs:
-                assert expected_num_running_jobs[inverse_order] in fields[columns.index('NUM_RUNNING_JOBS')]
+                assert expected_num_running_jobs[inverse_order] in fields[columns.index('RUNNING_JOBS')]
 
             if expected_max_num_parallel_jobs:
                 assert expected_max_num_parallel_jobs[inverse_order] in fields[columns.index('MAX_NUM_PARALLEL_JOBS')]
+
+            if expected_gpu:
+                assert expected_gpu[inverse_order] in fields[columns.index('GPU')]
 
         return r
 
@@ -906,10 +921,11 @@ class TestWrapper:
     def check_list_gpus_output(cls,
                                expected_name=None,
                                expected_codename=None,
+                               expected_availability=None,
                                expected_logout_warning=False,
                                expected_num_gpus=None
                                ):
-        columns = ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES']
+        columns = ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES', 'IS_AVAILABLE']
         r = TestUtils.list_gpus()
         if expected_logout_warning:
             assert r.exit_code == 1
@@ -936,6 +952,9 @@ class TestWrapper:
 
             if expected_codename:
                 assert expected_codename[idx] in fields[columns.index('CODENAME')]
+
+            if expected_availability:
+                assert expected_availability[idx] in fields[columns.index('IS_AVAILABLE')]
 
         return r, gpu_uuids
 

@@ -11,17 +11,19 @@ def test_user_sees_the_list_of_images_successfully():
     TestWrapper.check_list_images_output(
         expected_registry_path=[
             Image.STANDARD_NODE8['path'],
+            Image.TENSORFLOW_PYTHON27['path'],
             Image.WEB_CRAWLING_PYTHON27['path'],
             Image.TENSORFLOW_PYTHON36['path'],
             Image.WEB_CRAWLING_PYTHON36['path'],
         ],
         expected_description=[
             Image.STANDARD_NODE8['description'],
+            Image.TENSORFLOW_PYTHON27['description'],
             Image.WEB_CRAWLING_PYTHON27['description'],
             Image.TENSORFLOW_PYTHON36['description'],
             Image.WEB_CRAWLING_PYTHON36['description'],
         ],
-        expected_num_images=4
+        expected_num_images=5
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)

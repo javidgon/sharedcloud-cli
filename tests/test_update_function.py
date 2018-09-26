@@ -81,8 +81,14 @@ def test_user_get_validation_error_when_updating_a_function_with_missing_uuid():
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
+def test_user_doesnt_get_validation_error_when_updating_a_function_with_missing_image_uuid_because_it_was_already_set():
+    pass
 
 # Invalid Fields
+
+def test_user_gets_validation_error_when_updating_a_function_with_code_because_the_previous_set_image_doesnt_support_it():
+    pass
+
 def test_user_get_validation_error_when_updating_an_unknown_function():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 

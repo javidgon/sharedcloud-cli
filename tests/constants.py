@@ -19,6 +19,11 @@ class Image:
         'uuid': '23ca880b-94fe-472c-b9cf-934ed8295872',
         'description': 'TensorFlow is an open-source software library for dataflow programming across a range of tasks'
     }
+    TENSORFLOW_PYTHON27 = {
+        'path': 'sharedcloud/tensorflow-python27:latest',
+        'uuid': '268d1309-0d8c-4bc8-9609-644fc6c9e4b5',
+        'description': 'TensorFlow is an open-source software library for dataflow programming across a range of tasks'
+    }
 
 
 class Gpu:

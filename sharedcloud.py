@@ -40,10 +40,6 @@ INSTANCE_TYPES = {
 
 # Utils
 
-class ObjectNotFoundException(Exception):
-    pass
-
-
 def _read_token():
     if not os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
         return None
@@ -228,6 +224,11 @@ def _map_duration_to_readable_version(duration, token):
     if duration:
         return '{} seconds'.format(duration)
 
+def _map_boolean_to_yes_no(boolean, token):
+    if boolean:
+        return 'Yes'
+    else:
+        return 'No'
 
 # Validators
 
@@ -402,9 +403,11 @@ def list(config):
 
     _list_resource(url,
                    config.token,
-                   ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES'],
-                   ['uuid', 'name', 'codename', 'cuda_cores'],
-                   mappers={})
+                   ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES', 'IS_AVAILABLE'],
+                   ['uuid', 'name', 'codename', 'cuda_cores', 'is_available'],
+                   mappers={
+                       'is_available': _map_boolean_to_yes_no
+                   })
 
 
 @cli1.group(help='List/Clean/Download Images')
@@ -611,7 +614,7 @@ def create(config, function_uuid, parameters, base_gpu_uuid):
     _create_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'function': function_uuid,
         'parameters': parameters,
-        'base_gpu_uuid': base_gpu_uuid
+        'base_gpu': base_gpu_uuid
     })
 
 
@@ -717,8 +720,9 @@ def instance(config):
 @click.option('--type', required=True, type=click.Choice(['standard', 'gpu']))
 @click.option('--price-per-minute', required=True, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', default=1, type=click.INT)
+@click.option('--gpu-uuid', required=False, type=click.UUID)
 @pass_obj
-def create(config, name, type, price_per_minute, max_num_parallel_jobs):
+def create(config, name, type, price_per_minute, max_num_parallel_jobs, gpu_uuid):
     # sharedcloud instance create --name blabla --type standard --price-per-minute 2.0 --max-num-parallel-jobs 3
 
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
@@ -726,6 +730,7 @@ def create(config, name, type, price_per_minute, max_num_parallel_jobs):
         'type': INSTANCE_TYPES[type.upper()],
         'price_per_minute': price_per_minute,
         'max_num_parallel_jobs': max_num_parallel_jobs,
+        'gpu': gpu_uuid
     })
 
     if r.status_code == 201:
@@ -739,9 +744,9 @@ def create(config, name, type, price_per_minute, max_num_parallel_jobs):
 def list(config):
     _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
-                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'NUM_RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
+                   ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'GPU', 'RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
                     'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'price_per_minute', 'type', 'num_running_jobs', 'max_num_parallel_jobs',
+                   ['uuid', 'name', 'status', 'price_per_minute', 'type', 'gpu_name', 'num_running_jobs', 'max_num_parallel_jobs',
                     'last_connection'],
                    mappers={
                        'status': _map_instance_status_to_description,
@@ -756,9 +761,10 @@ def list(config):
 @click.option('--name', required=False)
 @click.option('--price-per-minute', required=False, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', required=False, type=click.INT)
+@click.option('--gpu-uuid', required=False, type=click.UUID)
 @pass_obj
-def update(config, uuid, type, name, price_per_minute, max_num_parallel_jobs):
-    # sharedcloud instance update --name blabla --type standard --price-per-minute 2.0 --max-num-parallel-jobs 3
+def update(config, uuid, type, name, price_per_minute, max_num_parallel_jobs, gpu_uuid):
+    # sharedcloud instance update --name blabla --type standard --price-per-minute 2.0 --max-num-parallel-jobs 3 --gpu-uuid <uuid>
 
     _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
@@ -766,6 +772,7 @@ def update(config, uuid, type, name, price_per_minute, max_num_parallel_jobs):
         'type': INSTANCE_TYPES[type.upper()] if type else None,
         'price_per_minute': price_per_minute,
         'max_num_parallel_jobs': max_num_parallel_jobs,
+        'gpu': gpu_uuid,
     })
 
 
