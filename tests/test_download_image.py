@@ -10,7 +10,7 @@ def test_user_downloads_an_image_successfully_with_an_standard_instance():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_minute=1.5,
+        ask_price=1.5,
         max_num_parallel_jobs=3
     )
 
@@ -30,7 +30,7 @@ def test_user_downloads_an_image_successfully_with_a_gpu_instance():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.GPU,
-        price_per_minute=1.5,
+        ask_price=1.5,
         max_num_parallel_jobs=3,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid']
     )
@@ -63,7 +63,7 @@ def test_user_gets_validation_error_trying_to_download_a_gpu_image_in_a_non_gpu_
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_minute=1.5,
+        ask_price=1.5,
         max_num_parallel_jobs=3
     )
 
@@ -85,7 +85,7 @@ def test_user_gets_validation_error_trying_to_download_a_non_gpu_image_in_a_gpu_
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.GPU,
-        price_per_minute=1.5,
+        ask_price=1.5,
         max_num_parallel_jobs=3,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid']
     )

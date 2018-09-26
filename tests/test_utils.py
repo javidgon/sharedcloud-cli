@@ -239,7 +239,8 @@ class TestUtils:
             cls,
             function_uuid=None,
             parameters=None,
-            base_gpu_uuid=None
+            base_gpu_uuid=None,
+            bid_price=None
     ):
         config = Config(token=_read_token())
         args = ['create']
@@ -250,6 +251,9 @@ class TestUtils:
         if parameters:
             args.append('--parameters')
             args.append(parameters)
+        if bid_price:
+            args.append('--bid-price')
+            args.append(bid_price)
         if base_gpu_uuid:
             args.append('--base-gpu-uuid')
             args.append(base_gpu_uuid)
@@ -333,7 +337,7 @@ class TestUtils:
             cls,
             name=None,
             type=None,
-            price_per_minute=None,
+            ask_price=None,
             max_num_parallel_jobs=None,
             gpu_uuid=None,
     ):
@@ -346,9 +350,9 @@ class TestUtils:
         if type:
             args.append('--type')
             args.append(type)
-        if price_per_minute:
-            args.append('--price-per-minute')
-            args.append(price_per_minute)
+        if ask_price:
+            args.append('--ask-price')
+            args.append(ask_price)
         if max_num_parallel_jobs:
             args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
@@ -364,7 +368,7 @@ class TestUtils:
             uuid=None,
             name=None,
             type=None,
-            price_per_minute=None,
+            ask_price=None,
             max_num_parallel_jobs=None,
             gpu_uuid=None
     ):
@@ -380,9 +384,9 @@ class TestUtils:
         if type:
             args.append('--type')
             args.append(type)
-        if price_per_minute:
-            args.append('--price-per-minute')
-            args.append(price_per_minute)
+        if ask_price:
+            args.append('--ask-price')
+            args.append(ask_price)
         if max_num_parallel_jobs:
             args.append('--max-num-parallel-jobs')
             args.append(max_num_parallel_jobs)
@@ -520,9 +524,9 @@ class TestWrapper:
                 assert expected_username[inverse_idx] in fields[columns.index('USERNAME')]
 
             if expected_balance_is_zero:
-                assert fields[columns.index('BALANCE')] == '$0.0'
+                assert fields[columns.index('BALANCE')] == '$0.000'
             else:
-                assert fields[columns.index('BALANCE')] != '$0.0'
+                assert fields[columns.index('BALANCE')] != '$0.000'
 
         return r
 
@@ -728,15 +732,17 @@ class TestWrapper:
 
     # Run
     @classmethod
-    def create_run_successfully(cls, function_uuid=None, parameters=None, base_gpu_uuid=None):
-        r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters, base_gpu_uuid=base_gpu_uuid)
+    def create_run_successfully(cls, function_uuid=None, parameters=None, base_gpu_uuid=None, bid_price=None):
+        r = TestUtils.create_run(
+            function_uuid=function_uuid, parameters=parameters, base_gpu_uuid=base_gpu_uuid, bid_price=bid_price)
         assert r.exit_code == 0
         return TestUtils.extract_uuid(r.output)
 
     @classmethod
     def create_run_unsuccessfully(
-            cls, function_uuid=None, parameters=None, base_gpu_uuid=None, error_code=None, msg=None):
-        r = TestUtils.create_run(function_uuid=function_uuid, parameters=parameters, base_gpu_uuid=base_gpu_uuid)
+            cls, function_uuid=None, parameters=None, base_gpu_uuid=None, bid_price=None, error_code=None, msg=None):
+        r = TestUtils.create_run(
+            function_uuid=function_uuid, parameters=parameters, base_gpu_uuid=base_gpu_uuid, bid_price=bid_price)
         assert r.exit_code == error_code
         assert msg in r.output
 
@@ -758,10 +764,11 @@ class TestWrapper:
                                expected_parameters=None,
                                expected_base_gpu=None,
                                expected_function=None,
+                               expected_bid_price=None,
                                expected_num_runs=None,
                                expected_logout_warning=False
                                ):
-        columns = ['UUID', 'PARAMETERS', 'BASE_GPU', 'FUNCTION', 'WHEN']
+        columns = ['UUID', 'PARAMETERS', 'BID_PRICE', 'BASE_GPU', 'FUNCTION', 'WHEN']
         r = TestUtils.list_runs()
         if expected_logout_warning:
             assert r.exit_code == 1
@@ -793,6 +800,9 @@ class TestWrapper:
             if expected_base_gpu:
                 assert expected_base_gpu[inverse_order] in fields[columns.index('BASE_GPU')]
 
+            if expected_bid_price:
+                assert expected_bid_price[inverse_order] in fields[columns.index('BID_PRICE')]
+
             if expected_function:
                 assert expected_function[inverse_order] in fields[columns.index('FUNCTION')]
 
@@ -807,34 +817,34 @@ class TestWrapper:
         assert msg in r.output
 
     @classmethod
-    def create_instance_successfully(cls, type=None, price_per_minute=None, max_num_parallel_jobs=None, gpu_uuid=None):
+    def create_instance_successfully(cls, type=None, ask_price=None, max_num_parallel_jobs=None, gpu_uuid=None):
         name = TestUtils.generate_random_seed()
-        r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
+        r = TestUtils.create_instance(name=name, type=type, ask_price=ask_price,
                                       max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == 0
         return TestUtils.extract_uuid(r.output), name
 
     @classmethod
     def create_instance_unsuccessfully(
-            cls, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, gpu_uuid=None, error_code=None, msg=None):
-        r = TestUtils.create_instance(name=name, type=type, price_per_minute=price_per_minute,
+            cls, name=None, type=None, ask_price=None, max_num_parallel_jobs=None, gpu_uuid=None, error_code=None, msg=None):
+        r = TestUtils.create_instance(name=name, type=type, ask_price=ask_price,
                                       max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == error_code
         assert msg in r.output
 
     @classmethod
     def update_instance_successfully(
-            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None, gpu_uuid=None):
+            cls, uuid=None, name=None, type=None, ask_price=None, max_num_parallel_jobs=None, gpu_uuid=None):
         r = TestUtils.update_instance(
-            uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
+            uuid=uuid, name=name, type=type, ask_price=ask_price,
             max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == 0
 
     @classmethod
     def update_instance_unsuccessfully(
-            cls, uuid=None, name=None, type=None, price_per_minute=None, max_num_parallel_jobs=None,
+            cls, uuid=None, name=None, type=None, ask_price=None, max_num_parallel_jobs=None,
             gpu_uuid=None, error_code=None, msg=None):
-        r = TestUtils.update_instance(uuid=uuid, name=name, type=type, price_per_minute=price_per_minute,
+        r = TestUtils.update_instance(uuid=uuid, name=name, type=type, ask_price=ask_price,
                                       max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == error_code
         assert msg in r.output
@@ -855,7 +865,7 @@ class TestWrapper:
                                     expected_uuid=None,
                                     expected_name=None,
                                     expected_status=None,
-                                    expected_price_per_minute=None,
+                                    expected_ask_price=None,
                                     expected_type=None,
                                     expected_num_running_jobs=None,
                                     expected_max_num_parallel_jobs=None,
@@ -864,7 +874,7 @@ class TestWrapper:
                                     expected_logout_warning=False
                                     ):
         config = Config(token=_read_token())
-        columns = ['UUID', 'NAME', 'STATUS', 'PRICE_PER_MINUTE', 'TYPE', 'GPU', 'RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
+        columns = ['UUID', 'NAME', 'STATUS', 'ASK_PRICE', 'TYPE', 'GPU', 'RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
                    'LAST_CONNECTION']
         r = TestUtils.runner.invoke(instance, [
             'list',
@@ -899,8 +909,8 @@ class TestWrapper:
             if expected_status:
                 assert expected_status[inverse_order] in fields[columns.index('STATUS')]
 
-            if expected_price_per_minute:
-                assert expected_price_per_minute[inverse_order] in fields[columns.index('PRICE_PER_MINUTE')]
+            if expected_ask_price:
+                assert expected_ask_price[inverse_order] in fields[columns.index('ASK_PRICE')]
 
             if expected_type:
                 assert expected_type[inverse_order] in fields[columns.index('TYPE')]

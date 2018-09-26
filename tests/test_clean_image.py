@@ -10,7 +10,7 @@ def test_user_cleans_an_image_successfully():
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.STANDARD,
-        price_per_minute=1.5,
+        ask_price=1.5,
         max_num_parallel_jobs=3
     )
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])

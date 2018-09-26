@@ -15,12 +15,12 @@ class Image:
         'description': 'An Image containing Node8'
     }
     TENSORFLOW_PYTHON36 = {
-        'path': 'sharedcloud/tensorflow-python36:latest',
+        'path': 'sharedcloud/tensorflow-gpu-python36:latest',
         'uuid': '23ca880b-94fe-472c-b9cf-934ed8295872',
         'description': 'An Image containing Python3.6 and Tensorflow for GPUs'
     }
     TENSORFLOW_PYTHON27 = {
-        'path': 'sharedcloud/tensorflow-python27:latest',
+        'path': 'sharedcloud/tensorflow-gpu-python27:latest',
         'uuid': '268d1309-0d8c-4bc8-9609-644fc6c9e4b5',
         'description': 'An Image containing Python2.7 and Tensorflow for GPUs'
     }

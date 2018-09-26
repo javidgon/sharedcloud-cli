@@ -17,7 +17,7 @@ def test_user_sees_the_list_of_jobs_successfully():
         image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file)
 
     run_uuid = TestWrapper.create_run_successfully(
-        function_uuid=function_uuid, parameters=parameter)
+        function_uuid=function_uuid, parameters=parameter, bid_price=2.0)
 
     _, uuids = TestWrapper.check_list_jobs_output(
         expected_status=['CREATED', 'CREATED'],
