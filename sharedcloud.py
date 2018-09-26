@@ -70,14 +70,6 @@ def _get_instance_uuid_or_exit_if_there_is_none():
     return instance_uuid
 
 
-def _get_server_datetime(token):
-    r = requests.get('{}/api/v1/server-datetime/'.format(SHAREDCLOUD_CLI_URL),
-                     headers={'Authorization': 'Token {}'.format(token)})
-    if r.status_code == 200:
-        response = r.json()
-        return datetime.datetime.strptime(response.get('datetime'), DATETIME_FORMAT)
-
-
 # Generic methods
 
 def _create_resource(url, token, data):
@@ -100,7 +92,7 @@ def _list_resource(url, token, headers, keys, mappers=None):
     def _get_data(resource, key, token):
         value = resource.get(key)
         if key in mappers.keys():
-            return mappers[key](value, token)
+            return mappers[key](value, resource, token)
         return value
 
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
@@ -185,50 +177,52 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
 
 
 # Mappers
-def _map_datetime_obj_to_human_representation(datetime_obj, token):
-    now = _get_server_datetime(token)
+def _map_datetime_obj_to_human_representation(datetime_obj, resource, token):
+    now = datetime.datetime.strptime(resource.get('current_server_time'), DATETIME_FORMAT)
 
     if datetime_obj:  # It can be None for certain dates
         return timeago.format(datetime.datetime.strptime(datetime_obj, DATETIME_FORMAT), now)
 
 
-def _map_job_status_to_description(status, token):
+def _map_job_status_to_description(status, resource, token):
     for status_name, id in JOB_STATUSES.items():
         if id == status:
             return status_name
 
 
-def _map_instance_status_to_description(status, token):
+def _map_instance_status_to_description(status, resource, token):
     for status_name, id in INSTANCE_STATUSES.items():
         if id == status:
             return status_name
 
 
-def _map_instance_type_to_description(type, token):
+def _map_instance_type_to_description(type, resource, token):
     for type_name, id in INSTANCE_TYPES.items():
         if id == type:
             return type_name
 
 
-def _map_code_to_reduced_version(code, token):
+def _map_code_to_reduced_version(code, resource, token):
     if len(code) > 35:
         return code[:30] + '...'
     return code
 
 
-def _map_cost_number_to_version_with_currency(cost, token):
+def _map_cost_number_to_version_with_currency(cost, resource, token):
     return '${}'.format(cost)
 
 
-def _map_duration_to_readable_version(duration, token):
+def _map_duration_to_readable_version(duration, resource, token):
     if duration:
         return '{} seconds'.format(duration)
 
-def _map_boolean_to_yes_no(boolean, token):
+
+def _map_boolean_to_yes_no(boolean, resource, token):
     if boolean:
         return 'Yes'
     else:
         return 'No'
+
 
 # Validators
 

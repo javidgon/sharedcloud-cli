@@ -2,27 +2,27 @@ class Image:
     WEB_CRAWLING_PYTHON36 = {
         'path': 'sharedcloud/web-crawling-python36:latest',
         'uuid': '24b3a0f8-c405-4928-954f-d5c93273f88a',
-        'description': 'An image with web crawling libraries'
+        'description': 'An Image containing Python3.6 and web crawling libraries such as requests, bs4, lxml and Scrapy'
     }
     WEB_CRAWLING_PYTHON27 = {
         'path': 'sharedcloud/web-crawling-python27:latest',
         'uuid': 'a8e496b2-ab15-40ee-a1bf-3a28d7a8a2c3',
-        'description': 'An image with web crawling libraries'
+        'description': 'An Image containing Python2.7 and web crawling libraries such as requests, bs4, lxml and Scrapy'
     }
     STANDARD_NODE8 = {
         'path': 'sharedcloud/standard-node8:latest',
         'uuid': '1a5111c1-17ee-459f-a4da-9c5272d86b1d',
-        'description': 'An image with standard libraries'
+        'description': 'An Image containing Node8'
     }
     TENSORFLOW_PYTHON36 = {
         'path': 'sharedcloud/tensorflow-python36:latest',
         'uuid': '23ca880b-94fe-472c-b9cf-934ed8295872',
-        'description': 'TensorFlow is an open-source software library for dataflow programming across a range of tasks'
+        'description': 'An Image containing Python3.6 and Tensorflow for GPUs'
     }
     TENSORFLOW_PYTHON27 = {
         'path': 'sharedcloud/tensorflow-python27:latest',
         'uuid': '268d1309-0d8c-4bc8-9609-644fc6c9e4b5',
-        'description': 'TensorFlow is an open-source software library for dataflow programming across a range of tasks'
+        'description': 'An Image containing Python2.7 and Tensorflow for GPUs'
     }
 
 
