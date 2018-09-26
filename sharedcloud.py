@@ -41,6 +41,9 @@ INSTANCE_TYPES = {
 # Utils
 
 def _read_token():
+    """
+    Read user token from the DATA_FOLDER.
+    """
     if not os.path.exists(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME):
         return None
     with open(SHAREDCLOUD_CLI_CLIENT_CONFIG_FILENAME, 'r') as f:
@@ -49,6 +52,9 @@ def _read_token():
 
 
 def _read_instance_uuid():
+    """
+    Read instance token from the DATA_FOLDER.
+    """
     if not os.path.exists(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME):
         return None
     with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'r') as f:
@@ -57,12 +63,20 @@ def _read_instance_uuid():
 
 
 def _exit_if_user_is_logged_out(token):
+    """
+    Exit if user is not logged in.
+
+    :param token: user token
+    """
     if not token:
         click.echo('You seem to be logged out. Please log in first')
         exit(1)
 
 
 def _get_instance_uuid_or_exit_if_there_is_none():
+    """
+    Get instance UUID or exit otherwise.
+    """
     instance_uuid = _read_instance_uuid()
     if not instance_uuid:
         click.echo('Instance not found in this computer')
@@ -73,6 +87,15 @@ def _get_instance_uuid_or_exit_if_there_is_none():
 # Generic methods
 
 def _create_resource(url, token, data):
+    """
+    Create a resource using a POST request.
+
+    This function is generic and was designed to unify all the POST requests to the Backend.
+
+    :param url: url to create the resource
+    :param token: user token
+    :param data: dict with data containing all the resource's attributes
+    """
     if token:
         r = requests.post(url, data=data,
                           headers={'Authorization': 'Token {}'.format(token)})
@@ -89,7 +112,28 @@ def _create_resource(url, token, data):
 
 
 def _list_resource(url, token, headers, keys, mappers=None):
+    """
+    List resources using a GET request.
+
+    This function is generic and was designed to unify all the GET requests to the Backend.
+    Additionally, this function displays the returned values using the "tabulate" library.
+    We use "mappers" to change the values that we display to the users.
+
+    :param url: url to fetch the data
+    :param token: user token
+    :param headers: titles that will be displayed once the data is being shown to the user
+    :param keys: attributes names from the response sent by the Backend
+    :param mappers: list of functions that will transform the data that the user sees (Default value = None)
+    """
+
     def _get_data(resource, key, token):
+        """
+        Iterate over the data a transform the values using the mappers.
+
+        :param resource: resource sent by the Backend
+        :param key: attribute that we want to map
+        :param token: user token
+        """
         value = resource.get(key)
         if key in mappers.keys():
             return mappers[key](value, resource, token)
@@ -112,6 +156,16 @@ def _list_resource(url, token, headers, keys, mappers=None):
 
 
 def _show_field_value(url, token, field_name):
+    """
+    Fetch a resource and extract an attribute from it.
+
+    This function also prints the field right away.
+    We use it to show attributes that are to too long to be displayed in a table.
+
+    :param url: url to fetch the data
+    :param token: user token
+    :param field_name: field to be printed
+    """
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
@@ -125,7 +179,15 @@ def _show_field_value(url, token, field_name):
 
 
 def _update_resource(url, token, data):
-    # We discard None values
+    """
+    Update a resource using a PATCH request.
+
+    This function is generic and was designed to unify all the PATCH requests to the Backend.
+
+    :param url: url to update the resource
+    :param token: user token
+    :param data: dict with the updated data to be applied
+    """
     cleaned_data = {}
     for key, value in data.items():
         if value:
@@ -145,6 +207,15 @@ def _update_resource(url, token, data):
 
 
 def _delete_resource(url, token, data):
+    """
+    Delete a resource using a DELETE request.
+
+    This function is generic and was designed to unify all the DELETE requests to the Backend.
+
+    :param url: url to delete the resource
+    :param token: user token
+    :param data: dict containing the uuid required to identify the resource
+    """
     r = requests.delete(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 204:
@@ -159,6 +230,16 @@ def _delete_resource(url, token, data):
 
 
 def _perform_instance_action(action, instance_uuid, token, data=None):
+    """
+    Generic method to update instances and to fetch jobs.
+    We use it to change the statuses (e.g., START, STOP)
+    and for fetching jobs from the Backend
+
+    :param action: action to perform
+    :param instance_uuid: instance uuid
+    :param token: user token
+    :param data: dict containing the data to apply (Default value = None)
+    """
     if not data:
         data = {}
 
@@ -178,46 +259,89 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
 
 # Mappers
 def _map_datetime_obj_to_human_representation(datetime_obj, resource, token):
+    """
+    Map a datetime obj into a human readable representation.
+
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     now = datetime.datetime.strptime(resource.get('current_server_time'), DATETIME_FORMAT)
 
     if datetime_obj:  # It can be None for certain dates
         return timeago.format(datetime.datetime.strptime(datetime_obj, DATETIME_FORMAT), now)
 
 
-def _map_job_status_to_description(status, resource, token):
+def _map_job_status_to_human_representation(status, resource, token):
+    """
+    Map an Job Status type code (e.g., 1, 2) to a human readable name.
+
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     for status_name, id in JOB_STATUSES.items():
         if id == status:
             return status_name
 
 
-def _map_instance_status_to_description(status, resource, token):
+def _map_instance_status_to_human_representation(status, resource, token):
+    """
+    Map an Instance status code (e.g., 1, 2) to a human readable name.
+
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     for status_name, id in INSTANCE_STATUSES.items():
         if id == status:
             return status_name
 
 
-def _map_instance_type_to_description(type, resource, token):
+def _map_instance_type_to_human_readable(type, resource, token):
+    """
+    Map an Instance type code (e.g., 1, 2) to a human readable name.
+
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     for type_name, id in INSTANCE_TYPES.items():
         if id == type:
             return type_name
 
 
-def _map_code_to_reduced_version(code, resource, token):
-    if len(code) > 35:
-        return code[:30] + '...'
-    return code
+def _map_non_formatted_money_to_version_with_currency(cost, resource, token):
+    """
+    Map a non formatted money str (e.g., 0.001) to a version with currency (e.g., $0.001).
 
-
-def _map_cost_number_to_version_with_currency(cost, resource, token):
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     return f'${cost:.3f}'
 
 
-def _map_duration_to_readable_version(duration, resource, token):
+def _map_duration_to_human_readable(duration, resource, token):
+    """
+    Map duration in seconds (e.g., 5) into a human readable representation (e.g., 1 second/s).
+
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     if duration:
-        return '{} seconds'.format(duration)
+        return '{} second/s'.format(duration)
 
 
-def _map_boolean_to_yes_no(boolean, resource, token):
+def _map_boolean_to_human_readable(boolean, resource, token):
+    """
+    Map a boolean into a human readable representation (Yes/No).
+
+    :param datetime_obj: the datetime object that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
     if boolean:
         return 'Yes'
     else:
@@ -227,6 +351,13 @@ def _map_boolean_to_yes_no(boolean, resource, token):
 # Validators
 
 def _validate_code(ctx, param, code):
+    """
+    Validate that either "code" or "file" need to be passed into the CMD
+
+    :param ctx: cmd context
+    :param param: cmd params
+    :param code: code provided by the user
+    """
     code_value = code
     if not code_value and 'file' not in ctx.params:
         raise click.BadParameter('Either "code" or "file" parameters need to be provided')
@@ -237,6 +368,13 @@ def _validate_code(ctx, param, code):
 
 
 def _validate_file(ctx, param, file):
+    """
+    Validate that either "code" or "file" need to be passed into the CMD
+
+    :param ctx: cmd context
+    :param param: cmd params
+    :param code: file provided by the user
+    """
     file_value = file
     if not file_value and 'code' not in ctx.params:
         raise click.BadParameter('Either "code" or "file" parameters need to be provided')
@@ -246,15 +384,11 @@ def _validate_file(ctx, param, file):
     return file
 
 
-def _validate_uuid(ctx, param, uuid):
-    if not uuid and not os.path.exists(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME):
-        raise click.BadParameter(
-            'This machine doesn\'t seem to contain an instance. If you still want to refer to one that you own, you need to provide the UUID')
-
-    return uuid
-
-
 class Config(object):
+    """
+    Context object that will contain the user token.
+    """
+
     def __init__(self):
         self.token = None
 
@@ -265,27 +399,44 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.group()
 @pass_config
 def cli1(config):
-    # If Config folder doesn't exist, we create it
+    """
+    Most global group. It's purpose is to read the user token and propagate it to all the commands.
+
+    :param config: context object
+    """
     if not os.path.exists(DATA_FOLDER):
         os.makedirs(DATA_FOLDER)
 
     config.token = _read_token()
 
 
-
-@cli1.group(help='Create/Update/Delete/List Account details')
+@cli1.group(help='Create/Delete/Update/List account details')
 @pass_obj
 def account(config):
+    """
+    Account command.
+
+    :param config: context object
+    """
     pass
 
 
-@account.command(help='Creates a new Account')
+@account.command(help='Creates a new account in Sharedcloud')
 @click.option('--email', required=True)
 @click.option('--username', required=True)
 @click.option('--password', required=True)
 @pass_obj
 def create(config, email, username, password):
-    # sharedcloud account create --email blabla@example.com--username blabla --password password
+    """
+    Account create sub-command. It creates a new user by providing a set of credentials.
+
+    >>> sharedcloud account create --email blabla@example.com --username blabla --password blabla12345
+
+    :param config: context object
+    :param email: user's email
+    :param username: user's username
+    :param password: user's password
+    """
     _create_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL), None, {
         'email': email,
         'username': username,
@@ -293,14 +444,24 @@ def create(config, email, username, password):
     })
 
 
-@account.command(help='Updates an Account')
+@account.command(help='Updates an account in Sharedcloud')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--email', required=True)
 @click.option('--username', required=False)
 @click.option('--password', required=False)
 @pass_obj
 def update(config, uuid, email, username, password):
-    # sharedcloud account update --email blabla@example.com--username blabla --password password
+    """
+    Account update sub-command. It updates a user totally or partially by providing an identifier (UUID).
+
+    >>> sharedcloud account update --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --email blabla@example.com --username blabla --password blabla12345
+
+    :param config: context object
+    :param uuid: user's uuid
+    :param email: user's email
+    :param username: user's username
+    :param password: user's password
+    """
     _exit_if_user_is_logged_out(config.token)
 
     _update_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
@@ -313,11 +474,18 @@ def update(config, uuid, email, username, password):
     _logout()
 
 
-@account.command(help='Deletes an Account')
+@account.command(help='Deletes an account in Sharedcloud')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
-    # sharedcloud account delete --uuid <uuid>
+    """
+    Account delete sub-command. It deletes a user by providing an identifier (UUID).
+
+    >>> sharedcloud account delete --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
+
+    :param config: context object
+    :param uuid: user's uuid
+    """
     _exit_if_user_is_logged_out(config.token)
 
     _delete_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
@@ -327,10 +495,16 @@ def delete(config, uuid):
     _logout()
 
 
-@account.command(help='List Account Information')
+@account.command(help='List the account information, such as email, username, balance...')
 @pass_obj
 def list(config):
-    # sharedcloud account list"
+    """
+    Account list sub-command. It shows the user account details (e.g., email, username, balance).
+
+    >>> sharedcloud account list
+
+    :param config: context object
+    """
     _exit_if_user_is_logged_out(config.token)
 
     _list_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL),
@@ -338,7 +512,7 @@ def list(config):
                    ['UUID', 'EMAIL', 'USERNAME', 'BALANCE', 'DATE_JOINED', 'LAST_LOGIN'],
                    ['uuid', 'email', 'username', 'balance', 'date_joined', 'last_login'],
                    mappers={
-                       'balance': _map_cost_number_to_version_with_currency,
+                       'balance': _map_non_formatted_money_to_version_with_currency,
                        'date_joined': _map_datetime_obj_to_human_representation,
                        'last_login': _map_datetime_obj_to_human_representation
                    })
@@ -364,7 +538,14 @@ def _login(username, password):
 @click.option('--username', required=True)
 @click.option('--password', required=True)
 def login(username, password):
-    # sharedcloud login username password
+    """
+    Login command. It logs in the user into Sharedcloud by providing a username and password.
+
+    >>> sharedcloud login --username john --password blabla12345
+
+    :param username: user's username
+    :param password: user's password
+    """
     _login(username, password)
 
 
@@ -379,21 +560,35 @@ def _logout():
 
 @cli1.command(help='Logout from Sharedcloud')
 def logout():
-    # sharedcloud logout
+    """
+    Logout command. It logs out the user from Sharedcloud.
+
+    >>> sharedcloud logout
+    """
     _logout()
 
 
-@cli1.group(help='List GPUs models available')
+@cli1.group(help='List the GPUs models available for your runs')
 @pass_obj
 def gpu(config):
+    """
+    Gpu command.
+
+    :param config: context object
+    """
     _exit_if_user_is_logged_out(config.token)
 
 
-@gpu.command(help='List GPUs models available')
+@gpu.command(help='GPUs models available')
 @pass_obj
 def list(config):
-    # sharedcloud gpu list"
+    """
+    Gpu list sub-command. It shows all the GPUs models and their availability at that precise moment.
 
+    >>> sharedcloud gpu list
+
+    :param config: context object
+    """
     url = '{}/api/v1/gpus/'.format(SHAREDCLOUD_CLI_URL)
 
     _list_resource(url,
@@ -401,13 +596,18 @@ def list(config):
                    ['UUID', 'NAME', 'CODENAME', 'CUDA_CORES', 'IS_AVAILABLE'],
                    ['uuid', 'name', 'codename', 'cuda_cores', 'is_available'],
                    mappers={
-                       'is_available': _map_boolean_to_yes_no
+                       'is_available': _map_boolean_to_human_readable
                    })
 
 
-@cli1.group(help='List/Clean/Download Images')
+@cli1.group(help='List/Download/Clean Images where you can run your functions')
 @pass_obj
 def image(config):
+    """
+    Image command.
+
+    :param config: context object
+    """
     _exit_if_user_is_logged_out(config.token)
 
 
@@ -415,8 +615,17 @@ def image(config):
 @click.option('--only-downloaded', is_flag=True)
 @pass_obj
 def list(config, only_downloaded):
-    # sharedcloud image list"
+    """
+    Image list sub-command. It shows all the Images where you can run your functions.
 
+    The flag "--only-downloaded" filters the images displayed and only shows the ones that have been already downloaded.
+
+    >>> sharedcloud image list
+    >>> sharedcloud image list --only-downloaded
+
+    :param config: context object
+    :param only_downloaded: flag to filter for downloaded instances
+    """
     url = '{}/api/v1/images/'.format(SHAREDCLOUD_CLI_URL)
     if only_downloaded:
         instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
@@ -436,7 +645,14 @@ def list(config, only_downloaded):
 @click.option('--registry-path', required=True, type=click.STRING)
 @pass_obj
 def clean(config, registry_path):
-    # sharedcloud image clean --registry-path <image>
+    """
+    Image clean sub-command. It cleans an image from the system.
+
+    >>> sharedcloud image clean --registry-path sharedcloud/web-crawling-python36:latest
+
+    :param config: context object
+    :param registry_path: the path to the DockerHub registry
+    """
     instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
     p = subprocess.Popen(
@@ -459,7 +675,14 @@ def clean(config, registry_path):
 @click.option('--registry-path', required=True)
 @pass_obj
 def download(config, registry_path):
-    # sharedcloud image download --registry-path <image>
+    """
+    Image download sub-command. It downloads an image to the system.
+
+    >>> sharedcloud image download --registry-path sharedcloud/web-crawling-python36:latest
+
+    :param config: context object
+    :param registry_path: the path to the DockerHub registry
+    """
     instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
 
     p = subprocess.Popen(
@@ -502,13 +725,24 @@ def _update_all_images(config):
 @image.command(help='Update All downloaded Images')
 @pass_obj
 def update_all(config):
-    # sharedcloud image update_all
+    """
+    Image update_all sub-command. It updates all the images downloaded by pulling from the registry.
+
+    >>> sharedcloud image update_all
+
+    :param config: context object
+    """
     _update_all_images(config)
 
 
 @cli1.group(help='Create/Delete/Update/List Functions')
 @pass_obj
 def function(config):
+    """
+     Function command.
+
+     :param config: context object
+     """
     _exit_if_user_is_logged_out(config.token)
 
 
@@ -519,8 +753,20 @@ def function(config):
 @click.option('--code', required=False, callback=_validate_code)
 @pass_obj
 def create(config, name, image_uuid, file, code):
-    # sharedcloud function create --name mything --image-uuid <uuid> --code "def handler(event): return 2"
-    # sharedcloud function create --name mything --image-uuid <uuid> --file "file.py"
+    """
+    Function create sub-command. It creates a new function by providing a set of data.
+
+    It's possible to specify either the "code" or "file" parameter. But there should be at least one.
+
+    >>> sharedcloud function create --name helloWorld --image-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --code "def handler(event): print('Hello World!')"
+    >>> sharedcloud function create --name helloWorld --image-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --file helloworld.py
+
+    :param config: context object
+    :param name: name of the function
+    :param image_uuid: uuid of the image that this function will use
+    :param file: file containing the code of the function
+    :param code: code of the function
+    """
     if file:
         code = ''
         while True:
@@ -544,8 +790,19 @@ def create(config, name, image_uuid, file, code):
 @click.option('--code', required=False)
 @pass_obj
 def update(config, uuid, name, image_uuid, file, code):
-    # sharedcloud function update --uuid <uuid> --name mything --image-uuid <uuid> --code "import sys; print(sys.argv)"
-    # sharedcloud function update  --uuid <uuid> --name mything --image-uuid <uuid> --file "file.py"
+    """
+    Function update sub-command. It updates a function totally or partially by providing a set of data.
+
+    >>> sharedcloud function create --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --name helloWorld --image-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --code "def handler(event): print('Hello World!')"
+    >>> sharedcloud function create --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --name helloWorld --image-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --file helloworld.py
+
+    :param config: context object
+    :param uuid: uuid of the function
+    :param name: name of the function
+    :param image_uuid: uuid of the image that this function will use
+    :param file: file containing the code of the function
+    :param code: code of the function
+    """
     if file:
         code = ''
         while True:
@@ -565,6 +822,13 @@ def update(config, uuid, name, image_uuid, file, code):
 @function.command(help='List Functions')
 @pass_obj
 def list(config):
+    """
+    Function list sub-command. It lists all the user's functions.
+
+    >>> sharedcloud function list
+
+    :param config: context object
+    """
     # sharedcloud function list"
     _list_resource('{}/api/v1/functions/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
@@ -579,7 +843,14 @@ def list(config):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
-    # sharedcloud function delete --uuid <uuid>
+    """
+    Function delete sub-command. It deletes a function by providing an identifier (UUID).
+
+    >>> sharedcloud function delete --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
+
+    :param config: context object
+    :param uuid: uuid of the function
+    """
     _delete_resource('{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid
     })
@@ -589,6 +860,14 @@ def delete(config, uuid):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def code(config, uuid):
+    """
+    Function code sub-command. It prints the code of a function into stdout by providing an identifier (UUID).
+
+    >>> sharedcloud function code --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
+
+    :param config: context object
+    :param uuid: uuid of the function
+    """
     _show_field_value(
         '{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'code')
 
@@ -596,6 +875,11 @@ def code(config, uuid):
 @cli1.group(help='Create/List Runs')
 @pass_obj
 def run(config):
+    """
+     Run command.
+
+     :param config: context object
+     """
     _exit_if_user_is_logged_out(config.token)
 
 
@@ -606,7 +890,20 @@ def run(config):
 @click.option('--base-gpu-uuid', required=False)
 @pass_obj
 def create(config, function_uuid, parameters, bid_price, base_gpu_uuid):
-    # sharedcloud run create --function-uuid <uuid> --parameters "((1, 2, 3), (4, 5, 6))" --bid-price 2.0 --base_gpu_uuid <uuid>
+    """
+    Run create sub-command. It creates a new run by providing a set of data.
+
+    It's important to notice that the "parameters" argument needs to be a tuple of tuples. Any other thing will raise a
+    validation error.
+
+    >>> sharedcloud run create --function-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --parameters "((1, 2, 3), (4, 5, 6))" --bid-price 2.0 --base_gpu_uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
+
+    :param config: context object
+    :param function_uuid: uuid of the function that the run will use
+    :param parameters: parameters to be used when creating the jobs. Each tuple will be sent to each Job.
+    :param bid_price: max price that the user is willing to pay
+    :param base_gpu_uuid: uuid of the gpu that it's the "minimum requirement" to run the batch of jobs created by this run
+    """
     _create_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'function': function_uuid,
         'parameters': parameters,
@@ -619,7 +916,14 @@ def create(config, function_uuid, parameters, bid_price, base_gpu_uuid):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
-    # sharedcloud run delete --uuid <uuid>
+    """
+    Run delete sub-command. It deletes a run by providing an identifier (UUID).
+
+    >>> sharedcloud run delete --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
+
+    :param config: context object
+    :param uuid: uuid of the function
+    """
     _delete_resource('{}/api/v1/runs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid
     })
@@ -628,13 +932,19 @@ def delete(config, uuid):
 @run.command(help='List Runs')
 @pass_obj
 def list(config):
-    # sharedcloud function list"
+    """
+    Run list sub-command. It lists all the user's runs.
+
+    >>> sharedcloud run list
+
+    :param config: context object
+    """
     _list_resource('{}/api/v1/runs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'PARAMETERS', 'BID_PRICE', 'BASE_GPU', 'FUNCTION', 'WHEN'],
-                   ['uuid', 'parameters', 'bid_price','base_gpu_name', 'function_name', 'created_at'],
+                   ['uuid', 'parameters', 'bid_price', 'base_gpu_name', 'function_name', 'created_at'],
                    mappers={
-                       'bid_price': _map_cost_number_to_version_with_currency,
+                       'bid_price': _map_non_formatted_money_to_version_with_currency,
                        'created_at': _map_datetime_obj_to_human_representation
                    })
 
@@ -642,20 +952,32 @@ def list(config):
 @cli1.group(help='List Jobs')
 @pass_obj
 def job(config):
+    """
+    Job command.
+
+    :param config: context object
+    """
     _exit_if_user_is_logged_out(config.token)
 
 
 @job.command(help='List Jobs')
 @pass_obj
 def list(config):
+    """
+    Job list sub-command. It lists all the user's jobs.
+
+    >>> sharedcloud job list
+
+    :param config: context object
+    """
     _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION'],
                    ['uuid', 'incremental_id', 'status', 'cost', 'duration', 'created_at', 'run', 'function_name'],
                    mappers={
-                       'cost': _map_cost_number_to_version_with_currency,
-                       'duration': _map_duration_to_readable_version,
-                       'status': _map_job_status_to_description,
+                       'cost': _map_non_formatted_money_to_version_with_currency,
+                       'duration': _map_duration_to_human_readable,
+                       'status': _map_job_status_to_human_representation,
                        'created_at': _map_datetime_obj_to_human_representation
                    })
 
@@ -664,6 +986,13 @@ def list(config):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def logs(config, uuid):
+    """
+    Job logs sub-command. It prints the logs of a job into stdout by providing an identifier (UUID).
+
+    >>> sharedcloud job logs --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
+
+    :param config: context object
+    """
     _show_field_value(
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'build_logs')
 
@@ -672,6 +1001,13 @@ def logs(config, uuid):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def result(config, uuid):
+    """
+    Job result sub-command. It prints the result of a job into stdout by providing an identifier (UUID).
+
+    >>> sharedcloud job result --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
+
+    :param config: context object
+    """
     _show_field_value(
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'result')
 
@@ -680,6 +1016,13 @@ def result(config, uuid):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def stdout(config, uuid):
+    """
+    Job stdout sub-command. It prints the output of a job into stdout by providing an identifier (UUID).
+
+    >>> sharedcloud job stdout --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
+
+    :param config: context object
+    """
     _show_field_value(
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stdout')
 
@@ -688,28 +1031,25 @@ def stdout(config, uuid):
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def stderr(config, uuid):
+    """
+    Job stderr sub-command. It prints the stderr of a job into stdout by providing an identifier (UUID).
+
+    >>> sharedcloud job stderr --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
+
+    :param config: context object
+    """
     _show_field_value(
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stderr')
-
-
-@job.command(help='List Jobs')
-@pass_obj
-def list(config):
-    _list_resource('{}/api/v1/jobs/'.format(SHAREDCLOUD_CLI_URL),
-                   config.token,
-                   ['UUID', 'ID', 'STATUS', 'COST', 'DURATION', 'WHEN', 'RUN_UUID', 'FUNCTION'],
-                   ['uuid', 'incremental_id', 'status', 'cost', 'duration', 'created_at', 'run', 'function_name'],
-                   mappers={
-                       'cost': _map_cost_number_to_version_with_currency,
-                       'duration': _map_duration_to_readable_version,
-                       'status': _map_job_status_to_description,
-                       'created_at': _map_datetime_obj_to_human_representation
-                   })
 
 
 @cli1.group(help='Create/Update/Start/List Instances')
 @pass_obj
 def instance(config):
+    """
+    Instance command.
+
+    :param config: context object
+     """
     _exit_if_user_is_logged_out(config.token)
 
 
@@ -721,8 +1061,19 @@ def instance(config):
 @click.option('--gpu-uuid', required=False, type=click.UUID)
 @pass_obj
 def create(config, name, type, ask_price, max_num_parallel_jobs, gpu_uuid):
-    # sharedcloud instance create --name blabla --type standard --ask-price 2.0 --max-num-parallel-jobs 3
+    """
+    Instance create sub-command. It creates a new instance by providing a set of data.
 
+    It's important to notice that the "max-num-parallel-jobs" argument defaults to 1 in case it's not provided
+
+    >>> sharedcloud instance create --name instance1 --type standard --ask-price 2.0 --max-num-parallel-jobs 3
+
+    :param config: context object
+    :param name: name of the instance
+    :param type: type of the instance. It can be either "gpu" or "standard"
+    :param ask_price: min price for which the instance would be willing to process jobs
+    :param max_num_parallel_jobs: max number of jobs that the instance is allowed to process in parallel
+    """
     r = _create_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'name': name,
         'type': INSTANCE_TYPES[type.upper()],
@@ -740,21 +1091,30 @@ def create(config, name, type, ask_price, max_num_parallel_jobs, gpu_uuid):
 @instance.command(help='List Instances')
 @pass_obj
 def list(config):
+    """
+    Instance list sub-command. It lists all the user's instances
+
+
+    >>> sharedcloud instance list
+
+    :param config: context object
+    """
     _list_resource('{}/api/v1/instances/'.format(SHAREDCLOUD_CLI_URL),
                    config.token,
                    ['UUID', 'NAME', 'STATUS', 'ASK_PRICE', 'TYPE', 'GPU', 'RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
                     'LAST_CONNECTION'],
-                   ['uuid', 'name', 'status', 'ask_price', 'type', 'gpu_name', 'num_running_jobs', 'max_num_parallel_jobs',
+                   ['uuid', 'name', 'status', 'ask_price', 'type', 'gpu_name', 'num_running_jobs',
+                    'max_num_parallel_jobs',
                     'last_connection'],
                    mappers={
-                       'status': _map_instance_status_to_description,
-                       'type': _map_instance_type_to_description,
+                       'status': _map_instance_status_to_human_representation,
+                       'type': _map_instance_type_to_human_readable,
                        'last_connection': _map_datetime_obj_to_human_representation
                    })
 
 
 @instance.command(help='Update an Instance')
-@click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
+@click.option('--uuid', required=True, type=click.UUID)
 @click.option('--type', required=False, type=click.Choice(['standard', 'gpu']))
 @click.option('--name', required=False)
 @click.option('--ask-price', required=False, type=click.FLOAT)
@@ -762,7 +1122,18 @@ def list(config):
 @click.option('--gpu-uuid', required=False, type=click.UUID)
 @pass_obj
 def update(config, uuid, type, name, ask_price, max_num_parallel_jobs, gpu_uuid):
-    # sharedcloud instance update --name blabla --type standard --ask-price 2.0 --max-num-parallel-jobs 3 --gpu-uuid <uuid>
+    """
+    Instance update sub-command. It updates totally or partially a new instance by providing a set of data.
+
+    >>> sharedcloud instance update --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647 --name instance1 --type standard --ask-price 2.0 --max-num-parallel-jobs 3
+
+    :param config: context object
+    :param uuid: uuid of the instance
+    :param name: name of the instance
+    :param type: type of the instance. It can be either "gpu" or "standard"
+    :param ask_price: min price for which the instance would be willing to process jobs
+    :param max_num_parallel_jobs: max number of jobs that the instance is allowed to process in parallel
+    """
 
     _update_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid,
@@ -775,10 +1146,17 @@ def update(config, uuid, type, name, ask_price, max_num_parallel_jobs, gpu_uuid)
 
 
 @instance.command(help='Deletes an Instance')
-@click.option('--uuid', required=True, callback=_validate_uuid, type=click.UUID)
+@click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
-    # sharedcloud instance delete [--uuid <uuid>]
+    """
+    Instance delete sub-command. It deletes a run by providing an identifier (UUID).
+
+    >>> sharedcloud instance delete --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
+
+    :param config: context object
+    :param uuid: uuid of the instance
+    """
 
     r = _delete_resource('{}/api/v1/instances/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
         'uuid': uuid
@@ -793,26 +1171,57 @@ def delete(config, uuid):
 @click.option('--job-timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
 def start(config, job_timeout):
+    """
+    Instance start sub-command. It starts the instance active in the machine.
+
+    It's important to notice that, by default, jobs are automatically timeout to 30 minutes. This can be changed by
+    the argument "job_timeout", but it's strongly discouraged to do this.
+
+    >>> sharedcloud instance start
+
+    :param config: context object
+    :param uuid: uuid of the instance
+    """
+
     def _update_job_remotely(job_uuid, data, token):
+        """
+        Updates a job in Sharedcloud. It's mostly used to send the results.
+
+        :param job_uuid: job uuid
+        :param data: dict containing the data to change
+        :param token: user token
+        """
         r = requests.patch('{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, job_uuid),
                            data=data, headers={'Authorization': 'Token {}'.format(token)})
         if r.status_code != 200:
             raise Exception(r.content)
         return r
 
-    def _pull_image(job_image_path):
-        # TODO: This output should probably be sent to us to analyse it. e.g., docker build errors
+    def _pull_image(registry_path):
+        """
+        Pull the latest version of an image from DockerHub.
+
+        :param registry_path: image path in the DockerHub registry
+        """
         build_logs = b''
 
         p = subprocess.Popen(
-            ['docker', 'pull', job_image_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ['docker', 'pull', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
 
         for line in (output + b'\n' + error).splitlines():
             build_logs += line + b'\n'
         return build_logs
 
-    def _run_container(job_uuid, job_wrapped_code, job_requires_gpu, job_image_path):
+    def _run_container(job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path):
+        """
+        Runs a container based on the arguments provided.
+
+        :param job_uuid: uuid of the job
+        :param job_wrapped_code: job wrapped code
+        :param job_requires_gpu: does the job requires gpu?
+        :param job_image_registry_path: image path in the DockerHub registry
+        """
         stdout = b''
         stderr = b''
         result = b''
@@ -820,6 +1229,11 @@ def start(config, job_timeout):
         has_failed = False
 
         def _extract_output(output):
+            """
+            Extract the result and the stdout from the full output.
+
+            :param output: full output of the job
+            """
             stdout = b''
             result = b''
             for line in output.splitlines():
@@ -833,7 +1247,7 @@ def start(config, job_timeout):
             return stdout, result
 
         args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
-                container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_path]
+                container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_registry_path]
 
         if job_requires_gpu:
             args.insert(2, '--runtime=nvidia')
@@ -851,6 +1265,9 @@ def start(config, job_timeout):
         return stdout, stderr, result, has_failed
 
     def _exit_if_docker_daemon_is_not_running():
+        """
+        Exit if the docker daemon is not running in this precise moment.
+        """
         p = subprocess.Popen(
             ['docker', 'ps'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
@@ -859,6 +1276,15 @@ def start(config, job_timeout):
             exit('Is the Docker daemon running in your machine?')
 
     def _report_failure(job_uuid, stdout, stderr, result, build_logs):
+        """
+        Report failure to Sharedcloud.
+
+        :param job_uuid: uuid of the job
+        :param stdout: stdout of the job
+        :param stderr: stderr of the job
+        :param result: result of the job
+        :param build_logs: build_logs of the job
+        """
         _update_job_remotely(
             job_uuid, {
                 "build_logs": build_logs,
@@ -869,6 +1295,15 @@ def start(config, job_timeout):
             }, config.token)
 
     def _report_success(job_uuid, stdout, stderr, result, build_logs):
+        """
+        Report success to Sharedcloud.
+
+        :param job_uuid: uuid of the job
+        :param stdout: stdout of the job
+        :param stderr: stderr of the job
+        :param result: result of the job
+        :param build_logs: build_logs of the job
+        """
         _update_job_remotely(
             job_uuid, {
                 "build_logs": build_logs,
@@ -879,6 +1314,11 @@ def start(config, job_timeout):
             }, config.token)
 
     def _report_timeout(job_uuid):
+        """
+        Report timeout to Sharedcloud.
+
+        :param job_uuid: uuid of the job
+        """
         _update_job_remotely(
             job_uuid, {
                 "status": JOB_STATUSES['TIMEOUT']
@@ -886,6 +1326,15 @@ def start(config, job_timeout):
 
     def _job_loop(
             config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code):
+        """
+        Performs the job of executing a job and extract his results. It's executed inside a different process.
+        :param config: context object
+        :param job_uuid: uuid of the job
+        :param job_requires_gpu: does the job requires gpu?
+        :param job_image_registry_path: image path to the DockerHub registry
+        :param job_wrapped_code: job wrapped code
+
+        """
         # We update the job in the remote, so it doesn't get assigned to other instances
         _update_job_remotely(
             job_uuid, {
