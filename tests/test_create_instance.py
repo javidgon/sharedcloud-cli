@@ -36,7 +36,7 @@ def test_user_creates_an_standard_instance():
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
-def test_user_creates_a_gpu_instance_successfully():
+def test_user_creates_a_gpu_instance_successfully_passing_max_num_parallel_jobs_as_1():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -44,9 +44,10 @@ def test_user_creates_a_gpu_instance_successfully():
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.GPU,
         ask_price=1.5,
-        max_num_parallel_jobs=3,
+        max_num_parallel_jobs=1,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid']
     )
+
 
     TestWrapper.check_list_instances_output(
         expected_uuid=[instance_uuid],
@@ -54,7 +55,36 @@ def test_user_creates_a_gpu_instance_successfully():
         expected_status=['NOT_AVAILABLE'],
         expected_ask_price=['1.5'],
         expected_num_running_jobs=['0'],
-        expected_max_num_parallel_jobs=['3'],
+        expected_max_num_parallel_jobs=['1'],
+        expected_type=['GPU'],
+        expected_gpu=[Gpu.TITAN_V_12GB['name']],
+        expected_num_instances=1
+    )
+
+    TestWrapper.delete_instance_successfully(uuid=instance_uuid)
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+
+def test_user_creates_a_gpu_instance_successfully_not_passing_max_num_parallel_jobs():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    instance_uuid, instance_name = TestWrapper.create_instance_successfully(
+        type=InstanceType.GPU,
+        ask_price=1.5,
+        gpu_uuid=Gpu.TITAN_V_12GB['uuid']
+    )
+
+
+    TestWrapper.check_list_instances_output(
+        expected_uuid=[instance_uuid],
+        expected_name=[instance_name],
+        expected_status=['NOT_AVAILABLE'],
+        expected_ask_price=['1.5'],
+        expected_num_running_jobs=['0'],
+        expected_max_num_parallel_jobs=['1'],
         expected_type=['GPU'],
         expected_gpu=[Gpu.TITAN_V_12GB['name']],
         expected_num_instances=1
@@ -207,7 +237,6 @@ def test_user_gets_validation_error_when_creating_a_gpu_instance_with_missing_gp
         name=TestUtils.generate_random_seed(),
         type=InstanceType.GPU,
         ask_price=1.5,
-        max_num_parallel_jobs=3,
         error_code=1,
         msg='needs to be provided if the instance is type GPU"'
     )
@@ -298,6 +327,24 @@ def test_user_gets_validation_error_when_creating_an_instance_with_a_too_low_ask
         gpu_uuid=Gpu.TITAN_V_12GB['uuid'],
         error_code=1,
         msg='cannot be smaller than $0.001'
+    )
+
+    TestWrapper.delete_account_successfully(uuid=account_uuid)
+
+
+def test_user_gets_validation_error_when_creating_an_instance_with_a_max_num_parallel_jobs_bigger_than_one():
+    account_uuid, email, username, password = TestWrapper.create_account_successfully()
+
+    TestWrapper.login_successfully(username=username, password=password)
+
+    TestWrapper.create_instance_unsuccessfully(
+        name=TestUtils.generate_random_seed(),
+        type=InstanceType.GPU,
+        ask_price=0.01,
+        max_num_parallel_jobs=2,
+        gpu_uuid=Gpu.TITAN_V_12GB['uuid'],
+        error_code=1,
+        msg='is invalid. All GPU instances can only process one job at a time'
     )
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)

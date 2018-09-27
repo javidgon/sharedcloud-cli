@@ -56,7 +56,7 @@ def test_user_creates_a_run_with_gpu_requirements_successfully():
         image_uuid=Image.TENSORFLOW_PYTHON36['uuid'], file=file)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.GPU, ask_price=1.0, max_num_parallel_jobs=2, gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
+        type=InstanceType.GPU, ask_price=1.0, max_num_parallel_jobs=1, gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
@@ -99,7 +99,7 @@ def test_user_gets_validation_error_when_when_creating_by_providing_a_gpu_withou
         image_uuid=Image.TENSORFLOW_PYTHON36['uuid'], file=file)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.GPU, ask_price=1.0, max_num_parallel_jobs=2, gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
+        type=InstanceType.GPU, ask_price=1.0, max_num_parallel_jobs=1, gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
 
     run_uuid = TestWrapper.create_run_unsuccessfully(
         function_uuid=function_uuid, parameters=parameters, bid_price=2.0,
