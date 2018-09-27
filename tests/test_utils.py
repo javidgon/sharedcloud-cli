@@ -640,7 +640,6 @@ class TestWrapper:
                 assert expected_name[inverse_idx] in fields[columns.index('NAME')]
 
             if expected_image:
-                print(expected_image[inverse_idx], fields[columns.index('IMAGE')])
                 assert expected_image[inverse_idx] in fields[columns.index('IMAGE')]
 
             if expected_num_runs:

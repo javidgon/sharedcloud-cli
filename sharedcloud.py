@@ -1220,16 +1220,24 @@ def start(config, job_timeout):
         container_name = job_uuid
         has_failed = False
 
-        args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
+        args = ['docker', 'run', '--rm', '--name',
                 container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_registry_path]
 
         if job_requires_gpu:
             args.insert(2, '--runtime=nvidia')
+        else:
+            args.insert(2, '--memory=1024m')
+            args.insert(2, '--cpus=1')
 
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
 
         if p.returncode != 0:
+            click.echo('[ERROR] Job {} has failed :('.format(job_uuid))
+            if job_requires_gpu:
+                click.echo(
+                    '[WARNING] As your instance is type "GPU", make sure that the "--max-num-parallel-jobs" in your instance is less than 3')
+
             has_failed = True
 
         return output, error, has_failed
@@ -1283,10 +1291,10 @@ def start(config, job_timeout):
     try:
         # First, we let our remote know that we are starting the instance
         _perform_instance_action('start', instance_uuid, config.token)
-        click.echo('Updating all downloaded images...')
+        click.echo('[INFO] Updating all downloaded images...')
         _update_all_images(config)
 
-        click.echo('Ready to take Jobs...')
+        click.echo('[INFO] Ready to take Jobs...')
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
         while True:
@@ -1296,13 +1304,13 @@ def start(config, job_timeout):
             jobs = r.json()
             num_jobs = len(jobs)
             if num_jobs > 0:
-                click.echo('{} job/s arrived, please be patient...'.format(num_jobs))
+                click.echo('[INFO] {} job/s arrived, please be patient...'.format(num_jobs))
 
             processes = {}
             for job in jobs:
                 # We extract some useful data about the job/instance that we are going to need
                 job_uuid = job.get('job_uuid')
-                click.echo('Starting Job {}...'.format(job_uuid))
+                click.echo('[INFO] Starting Job {}...'.format(job_uuid))
 
                 job_requires_gpu = job.get('requires_gpu')
                 job_image_registry_path = job.get('image_registry_path')
@@ -1326,7 +1334,7 @@ def start(config, job_timeout):
                     process.terminate()
 
             if num_jobs > 0:
-                click.echo('All jobs were completed!')
+                click.echo('[INFO] All jobs were completed.')
 
             # We wait 5 seconds until the next check
             time.sleep(5)
