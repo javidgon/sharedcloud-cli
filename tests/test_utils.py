@@ -4,7 +4,7 @@ import re
 import uuid
 from click.testing import CliRunner
 
-from sharedcloud import cli1, _read_user_token, function, run, instance, job, account, image, gpu
+from sharedcloud import cli1, _read_user_token, function, run, instance, job, account, image, gpu, offer
 from tests.constants import Message
 
 
@@ -276,6 +276,14 @@ class TestUtils:
     def list_gpus(cls):
         config = Config(token=_read_user_token())
         return cls.runner.invoke(gpu, [
+            'list',
+        ], obj=config)
+
+    # Offers
+    @classmethod
+    def list_offers(cls):
+        config = Config(token=_read_user_token())
+        return cls.runner.invoke(offer, [
             'list',
         ], obj=config)
 
@@ -825,7 +833,8 @@ class TestWrapper:
 
     @classmethod
     def create_instance_unsuccessfully(
-            cls, name=None, type=None, ask_price=None, max_num_parallel_jobs=None, gpu_uuid=None, error_code=None, msg=None):
+            cls, name=None, type=None, ask_price=None, max_num_parallel_jobs=None, gpu_uuid=None, error_code=None,
+            msg=None):
         r = TestUtils.create_instance(name=name, type=type, ask_price=ask_price,
                                       max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == error_code
@@ -966,6 +975,55 @@ class TestWrapper:
                 assert expected_availability[idx] in fields[columns.index('IS_AVAILABLE')]
 
         return r, gpu_uuids
+
+    # Offer
+    @classmethod
+    def check_list_offers_output(cls,
+                                 expected_instance_name=None,
+                                 expected_type=None,
+                                 expected_gpu=None,
+                                 expected_cuda_cores=None,
+                                 expected_ask_price=None,
+                                 expected_num_offers=None,
+                                 expected_logout_warning=False
+                                 ):
+        columns = ['INSTANCE_NAME', 'TYPE', 'GPU', 'CUDA_CORES', 'ASK_PRICE', 'WHEN']
+        r = TestUtils.list_offers()
+        if expected_logout_warning:
+            assert r.exit_code == 1
+            assert Message.YOU_ARE_LOGOUT_WARNING in r.output
+            return
+        else:
+            assert r.exit_code == 0
+
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+        num_rows = len(rows)
+        if expected_num_offers:
+            assert num_rows == expected_num_offers
+
+        for idx, row in enumerate(rows):
+            inverse_order = num_rows - (idx + 1)
+            fields = [field for field in row.split('  ') if field]
+
+            if expected_instance_name:
+                assert expected_instance_name[inverse_order] in fields[columns.index('INSTANCE_NAME')]
+
+            if expected_type:
+                assert expected_type[inverse_order] in fields[columns.index('TYPE')]
+
+            if expected_gpu:
+                assert expected_gpu[inverse_order] in fields[columns.index('GPU')]
+
+            if expected_cuda_cores:
+                assert expected_cuda_cores[inverse_order] in fields[columns.index('CUDA_CORES')]
+
+            if expected_ask_price:
+                assert expected_ask_price[inverse_order] in fields[columns.index('ASK_PRICE')]
+
+        return r
 
     # Job
     @classmethod

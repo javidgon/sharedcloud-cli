@@ -1053,6 +1053,39 @@ def stderr(config, uuid):
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stderr')
 
 
+@cli1.group(help='List the offers that are currently available')
+@pass_obj
+def offer(config):
+    """
+    Offer command.
+
+    :param config: context object
+     """
+    _exit_if_user_is_logged_out(config.token)
+
+
+@offer.command(help='List offers')
+@pass_obj
+def list(config):
+    """
+    Offer list sub-command. It lists all the offers available
+
+
+    >>> sharedcloud offer list
+
+    :param config: context object
+    """
+    _list_resource('{}/api/v1/offers/'.format(SHAREDCLOUD_CLI_URL),
+                   config.token,
+                   ['INSTANCE_NAME', 'TYPE', 'GPU', 'CUDA_CORES', 'ASK_PRICE', 'WHEN'],
+                   ['name', 'type', 'gpu_name', 'cuda_cores', 'ask_price', 'last_connection'],
+                   mappers={
+                       'ask_price': _map_non_formatted_money_to_version_with_currency,
+                       'type': _map_instance_type_to_human_readable,
+                       'last_connection': _map_datetime_obj_to_human_representation
+                   })
+
+
 @cli1.group(help='Create/Update/Start/List Instances')
 @pass_obj
 def instance(config):
