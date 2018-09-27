@@ -39,8 +39,7 @@ INSTANCE_TYPES = {
 
 
 # Utils
-
-def _read_token():
+def _read_user_token():
     """
     Read user token from the DATA_FOLDER.
     """
@@ -51,7 +50,7 @@ def _read_token():
     return token
 
 
-def _read_instance_uuid():
+def _read_instance_token():
     """
     Read instance token from the DATA_FOLDER.
     """
@@ -73,11 +72,11 @@ def _exit_if_user_is_logged_out(token):
         exit(1)
 
 
-def _get_instance_uuid_or_exit_if_there_is_none():
+def _get_instance_token_or_exit_if_there_is_none():
     """
     Get instance UUID or exit otherwise.
     """
-    instance_uuid = _read_instance_uuid()
+    instance_uuid = _read_instance_token()
     if not instance_uuid:
         click.echo('Instance not found in this computer')
         exit(1)
@@ -85,7 +84,6 @@ def _get_instance_uuid_or_exit_if_there_is_none():
 
 
 # Generic methods
-
 def _create_resource(url, token, data):
     """
     Create a resource using a POST request.
@@ -121,7 +119,7 @@ def _list_resource(url, token, headers, keys, mappers=None):
 
     :param url: url to fetch the data
     :param token: user token
-    :param headers: titles that will be displayed once the data is being shown to the user
+    :param headers: titles that will be displayed once the data is shown to the user
     :param keys: attributes names from the response sent by the Backend
     :param mappers: list of functions that will transform the data that the user sees (Default value = None)
     """
@@ -247,7 +245,7 @@ def _perform_instance_action(action, instance_uuid, token, data=None):
                        data=data, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
-        click.echo(data.get('uuid'))
+        pass
     elif r.status_code == 404:
         click.echo('Not found resource with this UUID')
         exit(1)
@@ -276,7 +274,7 @@ def _map_job_status_to_human_representation(status, resource, token):
     """
     Map an Job Status type code (e.g., 1, 2) to a human readable name.
 
-    :param datetime_obj: the datetime object that we want to transform
+    :param status: integer with the value that we want to transform
     :param resource: resource containing all the values and keys
     :param token: user token
     """
@@ -289,7 +287,7 @@ def _map_instance_status_to_human_representation(status, resource, token):
     """
     Map an Instance status code (e.g., 1, 2) to a human readable name.
 
-    :param datetime_obj: the datetime object that we want to transform
+    :param status: integer with the value that we want to transform
     :param resource: resource containing all the values and keys
     :param token: user token
     """
@@ -302,7 +300,7 @@ def _map_instance_type_to_human_readable(type, resource, token):
     """
     Map an Instance type code (e.g., 1, 2) to a human readable name.
 
-    :param datetime_obj: the datetime object that we want to transform
+    :param type: integer with the value that we want to transform
     :param resource: resource containing all the values and keys
     :param token: user token
     """
@@ -315,7 +313,7 @@ def _map_non_formatted_money_to_version_with_currency(cost, resource, token):
     """
     Map a non formatted money str (e.g., 0.001) to a version with currency (e.g., $0.001).
 
-    :param datetime_obj: the datetime object that we want to transform
+    :param cost: float with the value that we want to transform
     :param resource: resource containing all the values and keys
     :param token: user token
     """
@@ -326,7 +324,7 @@ def _map_duration_to_human_readable(duration, resource, token):
     """
     Map duration in seconds (e.g., 5) into a human readable representation (e.g., 1 second/s).
 
-    :param datetime_obj: the datetime object that we want to transform
+    :param duration: integer with the value that we want to transform
     :param resource: resource containing all the values and keys
     :param token: user token
     """
@@ -338,7 +336,7 @@ def _map_boolean_to_human_readable(boolean, resource, token):
     """
     Map a boolean into a human readable representation (Yes/No).
 
-    :param datetime_obj: the datetime object that we want to transform
+    :param boolean: boolean with the value that we want to transform
     :param resource: resource containing all the values and keys
     :param token: user token
     """
@@ -350,38 +348,33 @@ def _map_boolean_to_human_readable(boolean, resource, token):
 
 # Validators
 
-def _validate_code(ctx, param, code):
+def _validate_at_least_one_but_only_one(ctx, main_field_value, main_field_key, other_field_key):
     """
-    Validate that either "code" or "file" need to be passed into the CMD
+    Validate that either "main_field" or "other_field" are passed into the CMD.
+
+    It also validates that only one is provided.
 
     :param ctx: cmd context
-    :param param: cmd params
-    :param code: code provided by the user
+    :param main_field_value: argument containing the main field value to compare with
+    :param main_field_key: argument containing the main field name
+    :param other_field_key: argument containing the other field name
     """
-    code_value = code
-    if not code_value and 'file' not in ctx.params:
-        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
-    if code_value and 'file' in ctx.params:
-        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
+    if not main_field_value and other_field_key not in ctx.params:
+        raise click.BadParameter('Either "{}" or "{}" parameters need to be provided'.format(
+            main_field_key, other_field_key))
+    if main_field_value and other_field_key in ctx.params:
+        raise click.BadParameter('Only one of "{}" and "{}" parameters need to be provided'.format(
+            main_field_key, other_field_key))
 
-    return code
+    return main_field_value
+
+
+def _validate_code(ctx, param, code):
+    return _validate_at_least_one_but_only_one(ctx, code, 'code', 'file')
 
 
 def _validate_file(ctx, param, file):
-    """
-    Validate that either "code" or "file" need to be passed into the CMD
-
-    :param ctx: cmd context
-    :param param: cmd params
-    :param code: file provided by the user
-    """
-    file_value = file
-    if not file_value and 'code' not in ctx.params:
-        raise click.BadParameter('Either "code" or "file" parameters need to be provided')
-    if file_value and 'code' in ctx.params:
-        raise click.BadParameter('Only one of "code" and "file" parameters need to be provided')
-
-    return file
+    return _validate_at_least_one_but_only_one(ctx, file, 'file', 'code')
 
 
 class Config(object):
@@ -407,7 +400,7 @@ def cli1(config):
     if not os.path.exists(DATA_FOLDER):
         os.makedirs(DATA_FOLDER)
 
-    config.token = _read_token()
+    config.token = _read_user_token()
 
 
 @cli1.group(help='Create/Delete/Update/List account details')
@@ -628,7 +621,7 @@ def list(config, only_downloaded):
     """
     url = '{}/api/v1/images/'.format(SHAREDCLOUD_CLI_URL)
     if only_downloaded:
-        instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+        instance_uuid = _get_instance_token_or_exit_if_there_is_none()
 
         url += '?instance={}'.format(instance_uuid)
 
@@ -653,7 +646,7 @@ def clean(config, registry_path):
     :param config: context object
     :param registry_path: the path to the DockerHub registry
     """
-    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+    instance_uuid = _get_instance_token_or_exit_if_there_is_none()
 
     p = subprocess.Popen(
         ['docker', 'rmi', '-f', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -683,7 +676,7 @@ def download(config, registry_path):
     :param config: context object
     :param registry_path: the path to the DockerHub registry
     """
-    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+    instance_uuid = _get_instance_token_or_exit_if_there_is_none()
 
     p = subprocess.Popen(
         ['docker', 'pull', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -700,8 +693,30 @@ def download(config, registry_path):
             click.echo(line + b'\n')
 
 
+def _update_image(registry_path):
+    """
+    Update a single image by pulling it from the DockerHub registry.
+
+    :param registry_path: path to the DockerHub registry
+    """
+    logs = b''
+    p = subprocess.Popen(
+        ['docker', 'pull', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = p.communicate()
+
+    for line in (output + b'\n' + error).splitlines():
+        logs += line + b'\n'
+
+    return logs
+
+
 def _update_all_images(config):
-    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+    """
+    Update all the downloaded images.
+
+    :param config: context object
+    """
+    instance_uuid = _get_instance_token_or_exit_if_there_is_none()
 
     r = requests.get(
         '{}/api/v1/images/?instance={}'.format(SHAREDCLOUD_CLI_URL, instance_uuid),
@@ -711,12 +726,8 @@ def _update_all_images(config):
         images = r.json()
 
         for image in images:
-            p = subprocess.Popen(
-                ['docker', 'pull', image.get('registry_path')], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output, error = p.communicate()
-
-            for line in (output + b'\n' + error).splitlines():
-                click.echo(line + b'\n')
+            logs = _update_image(image.get('registry_path'))
+            click.echo(logs)
     else:
         click.echo(r.content)
         exit(1)
@@ -1055,7 +1066,7 @@ def instance(config):
 
 @instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
-@click.option('--type', required=True, type=click.Choice(['standard', 'gpu']))
+@click.option('--type', required=True, default='standard', type=click.Choice(['standard', 'gpu']))
 @click.option('--ask-price', required=True, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', default=1, type=click.INT)
 @click.option('--gpu-uuid', required=False, type=click.UUID)
@@ -1183,7 +1194,7 @@ def start(config, job_timeout):
     :param uuid: uuid of the instance
     """
 
-    def _update_job_remotely(job_uuid, data, token):
+    def _update_job(job_uuid, data, token):
         """
         Updates a job in Sharedcloud. It's mostly used to send the results.
 
@@ -1197,22 +1208,6 @@ def start(config, job_timeout):
             raise Exception(r.content)
         return r
 
-    def _pull_image(registry_path):
-        """
-        Pull the latest version of an image from DockerHub.
-
-        :param registry_path: image path in the DockerHub registry
-        """
-        build_logs = b''
-
-        p = subprocess.Popen(
-            ['docker', 'pull', registry_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
-
-        for line in (output + b'\n' + error).splitlines():
-            build_logs += line + b'\n'
-        return build_logs
-
     def _run_container(job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path):
         """
         Runs a container based on the arguments provided.
@@ -1222,29 +1217,8 @@ def start(config, job_timeout):
         :param job_requires_gpu: does the job requires gpu?
         :param job_image_registry_path: image path in the DockerHub registry
         """
-        stdout = b''
-        stderr = b''
-        result = b''
         container_name = job_uuid
         has_failed = False
-
-        def _extract_output(output):
-            """
-            Extract the result and the stdout from the full output.
-
-            :param output: full output of the job
-            """
-            stdout = b''
-            result = b''
-            for line in output.splitlines():
-                if 'ResponseHandler' in str(line):
-                    start = str(line).find('|') - 1
-                    end = str(line).find('?') - 2
-                    result = line[start:end]
-                else:
-                    stdout += line + b'\n'
-
-            return stdout, result
 
         args = ['docker', 'run', '--rm', '--memory=1024m', '--cpus=1', '--name',
                 container_name, '-e', 'CODE={}'.format(job_wrapped_code), job_image_registry_path]
@@ -1257,12 +1231,8 @@ def start(config, job_timeout):
 
         if p.returncode != 0:
             has_failed = True
-            stderr = error
-            stdout, _ = _extract_output(output)
-        else:
-            stdout, result = _extract_output(output)
 
-        return stdout, stderr, result, has_failed
+        return output, error, has_failed
 
     def _exit_if_docker_daemon_is_not_running():
         """
@@ -1274,55 +1244,6 @@ def start(config, job_timeout):
 
         if error:
             exit('Is the Docker daemon running in your machine?')
-
-    def _report_failure(job_uuid, stdout, stderr, result, build_logs):
-        """
-        Report failure to Sharedcloud.
-
-        :param job_uuid: uuid of the job
-        :param stdout: stdout of the job
-        :param stderr: stderr of the job
-        :param result: result of the job
-        :param build_logs: build_logs of the job
-        """
-        _update_job_remotely(
-            job_uuid, {
-                "build_logs": build_logs,
-                "stdout": stdout,
-                "stderr": stderr,
-                "result": result,
-                "status": JOB_STATUSES['FAILED']
-            }, config.token)
-
-    def _report_success(job_uuid, stdout, stderr, result, build_logs):
-        """
-        Report success to Sharedcloud.
-
-        :param job_uuid: uuid of the job
-        :param stdout: stdout of the job
-        :param stderr: stderr of the job
-        :param result: result of the job
-        :param build_logs: build_logs of the job
-        """
-        _update_job_remotely(
-            job_uuid, {
-                "build_logs": build_logs,
-                "stdout": stdout,
-                "stderr": stderr,
-                "result": result,
-                "status": JOB_STATUSES['SUCCEEDED']
-            }, config.token)
-
-    def _report_timeout(job_uuid):
-        """
-        Report timeout to Sharedcloud.
-
-        :param job_uuid: uuid of the job
-        """
-        _update_job_remotely(
-            job_uuid, {
-                "status": JOB_STATUSES['TIMEOUT']
-            }, config.token)
 
     def _job_loop(
             config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code):
@@ -1336,26 +1257,28 @@ def start(config, job_timeout):
 
         """
         # We update the job in the remote, so it doesn't get assigned to other instances
-        _update_job_remotely(
+        _update_job(
             job_uuid, {
                 "status": JOB_STATUSES['IN_PROGRESS']
             }, config.token)
 
-        build_logs = _pull_image(job_image_registry_path)
+        build_logs = _update_image(job_image_registry_path)
 
         # After the image has been generated, we run our container and calculate our result
-        stdout, stderr, result, has_failed = _run_container(
+        output, error, has_failed = _run_container(
             job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path)
-        if has_failed:
-            _report_failure(job_uuid, stdout, stderr, result, build_logs)
-        else:
-            _report_success(job_uuid, stdout, stderr, result, build_logs)
 
-    instance_uuid = _get_instance_uuid_or_exit_if_there_is_none()
+        _update_job(
+            job_uuid, {
+                "build_logs": build_logs,
+                "output": output,
+                "error": error,
+                "status": JOB_STATUSES['FAILED'] if has_failed else JOB_STATUSES['SUCCEEDED']
+            }, config.token)
+
+    instance_uuid = _get_instance_token_or_exit_if_there_is_none()
 
     _exit_if_docker_daemon_is_not_running()
-
-    # sharedcloud instance start --uuid <uuid>
 
     try:
         # First, we let our remote know that we are starting the instance
@@ -1395,7 +1318,11 @@ def start(config, job_timeout):
                 process.join(job_timeout)  # 30 minutes as default timeout
 
                 if process.is_alive():
-                    _report_timeout(job_uuid)
+                    _update_job(
+                        job_uuid, {
+                            "status": JOB_STATUSES['TIMEOUT']
+                        }, config.token
+                    )
                     process.terminate()
 
             if num_jobs > 0:

@@ -4,7 +4,7 @@ import re
 import uuid
 from click.testing import CliRunner
 
-from sharedcloud import cli1, _read_token, function, run, instance, job, account, image, gpu
+from sharedcloud import cli1, _read_user_token, function, run, instance, job, account, image, gpu
 from tests.constants import Message
 
 
@@ -27,7 +27,7 @@ class TestUtils:
             email=None,
             username=None,
             password=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['create']
 
         if email:
@@ -48,7 +48,7 @@ class TestUtils:
                        email=None,
                        username=None,
                        password=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['update']
 
         if uuid:
@@ -68,7 +68,7 @@ class TestUtils:
 
     @classmethod
     def delete_account(cls, uuid=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['delete']
 
         if uuid:
@@ -78,7 +78,7 @@ class TestUtils:
 
     @classmethod
     def list_account(cls):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         return cls.runner.invoke(account, [
             'list',
         ], obj=config)
@@ -106,7 +106,7 @@ class TestUtils:
 
     @classmethod
     def list_functions(cls):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         return cls.runner.invoke(function, [
             'list',
         ], obj=config)
@@ -119,7 +119,7 @@ class TestUtils:
             image_uuid=None,
             code=None,
             file=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['create']
 
         if name:
@@ -143,7 +143,7 @@ class TestUtils:
                         image_uuid=None,
                         code=None,
                         file=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['update']
 
         if uuid:
@@ -165,7 +165,7 @@ class TestUtils:
 
     @classmethod
     def delete_function(cls, uuid=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['delete']
 
         if uuid:
@@ -175,7 +175,7 @@ class TestUtils:
 
     @classmethod
     def get_code_for_function(cls, uuid):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['code']
 
         if uuid:
@@ -188,14 +188,14 @@ class TestUtils:
 
     @classmethod
     def update_all_images(cls):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['update_all']
 
         return cls.runner.invoke(image, args, obj=config)
 
     @classmethod
     def list_images(cls, only_downloaded=False):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['list']
         if only_downloaded:
             args.append('--only-downloaded')
@@ -205,7 +205,7 @@ class TestUtils:
     @classmethod
     def download_image(cls,
                        registry_path=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['download']
 
         if registry_path:
@@ -217,7 +217,7 @@ class TestUtils:
     @classmethod
     def clean_image(cls,
                     registry_path=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['clean']
 
         if registry_path:
@@ -229,7 +229,7 @@ class TestUtils:
     # Runs
     @classmethod
     def list_runs(cls):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         return cls.runner.invoke(run, [
             'list',
         ], obj=config)
@@ -242,7 +242,7 @@ class TestUtils:
             base_gpu_uuid=None,
             bid_price=None
     ):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['create']
 
         if function_uuid:
@@ -262,7 +262,7 @@ class TestUtils:
 
     @classmethod
     def delete_run(cls, uuid=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['delete']
 
         if uuid:
@@ -274,7 +274,7 @@ class TestUtils:
     # Gpus
     @classmethod
     def list_gpus(cls):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         return cls.runner.invoke(gpu, [
             'list',
         ], obj=config)
@@ -282,14 +282,14 @@ class TestUtils:
     # Jobs
     @classmethod
     def list_jobs(cls):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         return cls.runner.invoke(job, [
             'list',
         ], obj=config)
 
     @classmethod
     def get_logs_for_job(cls, uuid):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['logs']
 
         if uuid:
@@ -300,7 +300,7 @@ class TestUtils:
 
     @classmethod
     def get_result_for_job(cls, uuid):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['result']
 
         if uuid:
@@ -311,7 +311,7 @@ class TestUtils:
 
     @classmethod
     def get_stdout_for_job(cls, uuid):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['stdout']
 
         if uuid:
@@ -322,7 +322,7 @@ class TestUtils:
 
     @classmethod
     def get_stderr_for_job(cls, uuid):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['stderr']
 
         if uuid:
@@ -341,7 +341,7 @@ class TestUtils:
             max_num_parallel_jobs=None,
             gpu_uuid=None,
     ):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['create']
 
         if name:
@@ -372,7 +372,7 @@ class TestUtils:
             max_num_parallel_jobs=None,
             gpu_uuid=None
     ):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['update']
 
         if uuid:
@@ -397,7 +397,7 @@ class TestUtils:
 
     @classmethod
     def delete_instance(cls, uuid=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['delete']
 
         if uuid:
@@ -407,7 +407,7 @@ class TestUtils:
 
     @classmethod
     def start_instance(cls, job_timeout=None):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         args = ['start']
 
         if job_timeout:
@@ -873,7 +873,7 @@ class TestWrapper:
                                     expected_num_instances=None,
                                     expected_logout_warning=False
                                     ):
-        config = Config(token=_read_token())
+        config = Config(token=_read_user_token())
         columns = ['UUID', 'NAME', 'STATUS', 'ASK_PRICE', 'TYPE', 'GPU', 'RUNNING_JOBS', 'MAX_NUM_PARALLEL_JOBS',
                    'LAST_CONNECTION']
         r = TestUtils.runner.invoke(instance, [

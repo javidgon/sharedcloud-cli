@@ -142,18 +142,17 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_name(
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
-def test_user_gets_validation_error_when_creating_an_instance_with_missing_type():
+def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing_type_because_standard_is_used_by_default():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.create_instance_unsuccessfully(
-        name=TestUtils.generate_random_seed(),
+    instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         ask_price=1.5,
-        max_num_parallel_jobs=3,
-        error_code=2,
-        msg='Missing option "--type"'
+        max_num_parallel_jobs=3
     )
+
+    TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 

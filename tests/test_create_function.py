@@ -96,7 +96,7 @@ def test_user_get_validation_error_when_creating_a_function_with_missing_both_co
 
     TestWrapper.create_function_unsuccessfully(
         name=TestUtils.generate_random_seed(), image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], error_code=2,
-        msg='Either "code" or "file" parameters need to be provided')
+        msg='Either "file" or "code" parameters need to be provided')
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 

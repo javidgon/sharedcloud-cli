@@ -57,9 +57,9 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_failing()
             'Pulling'
         ],
         expected_results=[
-            '\n',
-            '\n',
-            '\n'
+            '',
+            '',
+            ''
         ],
         expected_stderrs=[
             'This is a test Exception',
