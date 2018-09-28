@@ -11,7 +11,7 @@ from click import pass_obj
 from tabulate import tabulate
 
 
-__VERSION__ = '1.0.0'
+__VERSION__ = '0.0.1'
 
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
@@ -401,11 +401,11 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 
 @click.group()
 @pass_config
-def cli1(config):
+def cli(config):
     """
-    Most global group. It's purpose is to read the user token and propagate it to all the commands.
+    Sharedcloud CLI tool to:
 
-    :param config: context object
+    Check the help available for each command listed below.
     """
     if not os.path.exists(DATA_FOLDER):
         os.makedirs(DATA_FOLDER)
@@ -414,36 +414,32 @@ def cli1(config):
     config.version = _get_cli_version()
 
 
-@cli1.command(help='Display CLI version')
+@cli.command(help='Display CLI version')
 @pass_obj
 def version(config):
     """
-    Version command. It displays the CLI version.
+    It displays the version of cli.
 
     >>> sharedcloud version
     """
     click.echo(config.version)
 
 
-@cli1.group(help='Create/Delete/Update/List account details')
+@cli.group(help='List and modify your account details')
 @pass_obj
 def account(config):
-    """
-    Account command.
-
-    :param config: context object
-    """
+    """List and modify account details."""
     pass
 
 
-@account.command(help='Creates a new account in Sharedcloud')
+@account.command(help='Create a new account in Sharedcloud')
 @click.option('--email', required=True)
 @click.option('--username', required=True)
 @click.option('--password', required=True)
 @pass_obj
 def create(config, email, username, password):
     """
-    Account create sub-command. It creates a new user by providing a set of credentials.
+    It creates a new user by providing a set of credentials.
 
     >>> sharedcloud account create --email blabla@example.com --username blabla --password blabla12345
 
@@ -459,7 +455,7 @@ def create(config, email, username, password):
     })
 
 
-@account.command(help='Updates an account in Sharedcloud')
+@account.command(help='Update an account in Sharedcloud')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--email', required=True)
 @click.option('--username', required=False)
@@ -467,7 +463,7 @@ def create(config, email, username, password):
 @pass_obj
 def update(config, uuid, email, username, password):
     """
-    Account update sub-command. It updates a user totally or partially by providing an identifier (UUID).
+    It updates a user totally or partially by providing an identifier (UUID).
 
     >>> sharedcloud account update --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --email blabla@example.com --username blabla --password blabla12345
 
@@ -489,12 +485,12 @@ def update(config, uuid, email, username, password):
     _logout()
 
 
-@account.command(help='Deletes an account in Sharedcloud')
+@account.command(help='Delete an account in Sharedcloud')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
     """
-    Account delete sub-command. It deletes a user by providing an identifier (UUID).
+    It deletes a user by providing an identifier (UUID).
 
     >>> sharedcloud account delete --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
 
@@ -514,7 +510,7 @@ def delete(config, uuid):
 @pass_obj
 def list(config):
     """
-    Account list sub-command. It shows the user account details (e.g., email, username, balance).
+    It shows the user account details (e.g., email, username, balance).
 
     >>> sharedcloud account list
 
@@ -549,12 +545,12 @@ def _login(username, password):
         exit(1)
 
 
-@cli1.command(help='Login into Sharedcloud')
+@cli.command(help='Login into Sharedcloud')
 @click.option('--username', required=True)
 @click.option('--password', required=True)
 def login(username, password):
     """
-    Login command. It logs in the user into Sharedcloud by providing a username and password.
+    It logs in the user into Sharedcloud by providing a username and password.
 
     >>> sharedcloud login --username john --password blabla12345
 
@@ -573,17 +569,17 @@ def _logout():
         exit(1)
 
 
-@cli1.command(help='Logout from Sharedcloud')
+@cli.command(help='Logout from Sharedcloud')
 def logout():
     """
-    Logout command. It logs out the user from Sharedcloud.
+    It logs out the user from Sharedcloud.
 
     >>> sharedcloud logout
     """
     _logout()
 
 
-@cli1.group(help='List the GPUs models available for your runs')
+@cli.group(help='List the GPUs models available for your runs')
 @pass_obj
 def gpu(config):
     """
@@ -594,11 +590,11 @@ def gpu(config):
     _exit_if_user_is_logged_out(config.token)
 
 
-@gpu.command(help='GPUs models available')
+@gpu.command(help='List the GPUs models from Sharedcloud')
 @pass_obj
 def list(config):
     """
-    Gpu list sub-command. It shows all the GPUs models and their availability at that precise moment.
+    It shows all the GPUs models and their availability at that precise moment.
 
     >>> sharedcloud gpu list
 
@@ -615,23 +611,19 @@ def list(config):
                    })
 
 
-@cli1.group(help='List/Download/Clean Images where you can run your functions')
+@cli.group(help='Manage and download images for your functions')
 @pass_obj
 def image(config):
-    """
-    Image command.
-
-    :param config: context object
-    """
+    """Manage and download images for your functions"""
     _exit_if_user_is_logged_out(config.token)
 
 
-@image.command(help='List Images')
+@image.command(help='List all the images available in Sharedcloud')
 @click.option('--only-downloaded', is_flag=True)
 @pass_obj
 def list(config, only_downloaded):
     """
-    Image list sub-command. It shows all the Images where you can run your functions.
+    It shows all the Images where you can run your functions.
 
     The flag "--only-downloaded" filters the images displayed and only shows the ones that have been already downloaded.
 
@@ -656,12 +648,12 @@ def list(config, only_downloaded):
                    })
 
 
-@image.command(help='Clean Image from the system')
+@image.command(help='Clean an image from the system')
 @click.option('--registry-path', required=True, type=click.STRING)
 @pass_obj
 def clean(config, registry_path):
     """
-    Image clean sub-command. It cleans an image from the system.
+    It cleans an image from the system.
 
     >>> sharedcloud image clean --registry-path sharedcloud/web-crawling-python36:latest
 
@@ -686,12 +678,12 @@ def clean(config, registry_path):
             click.echo(line + b'\n')
 
 
-@image.command(help='Download Image')
+@image.command(help='Download an image to your system')
 @click.option('--registry-path', required=True)
 @pass_obj
 def download(config, registry_path):
     """
-    Image download sub-command. It downloads an image to the system.
+    It downloads an image to the system.
 
     >>> sharedcloud image download --registry-path sharedcloud/web-crawling-python36:latest
 
@@ -755,11 +747,11 @@ def _update_all_images(config):
         exit(1)
 
 
-@image.command(help='Update All downloaded Images')
+@image.command(help='Update all the images in your system')
 @pass_obj
 def update_all(config):
     """
-    Image update_all sub-command. It updates all the images downloaded by pulling from the registry.
+    It updates all the images downloaded by pulling from the registry.
 
     >>> sharedcloud image update_all
 
@@ -768,18 +760,14 @@ def update_all(config):
     _update_all_images(config)
 
 
-@cli1.group(help='Create/Delete/Update/List Functions')
+@cli.group(help='List, create and modify your functions')
 @pass_obj
 def function(config):
-    """
-     Function command.
-
-     :param config: context object
-     """
+    """List, create and modify your functions"""
     _exit_if_user_is_logged_out(config.token)
 
 
-@function.command(help='Creates a new Function')
+@function.command(help='Create a new function')
 @click.option('--name', required=True)
 @click.option('--image-uuid', required=True, type=click.UUID)
 @click.option('--file', required=False, callback=_validate_file, type=click.File())
@@ -787,7 +775,7 @@ def function(config):
 @pass_obj
 def create(config, name, image_uuid, file, code):
     """
-    Function create sub-command. It creates a new function by providing a set of data.
+    It creates a new function by providing a set of data.
 
     It's possible to specify either the "code" or "file" parameter. But there should be at least one.
 
@@ -815,7 +803,7 @@ def create(config, name, image_uuid, file, code):
     })
 
 
-@function.command(help='Update a Function')
+@function.command(help='Update a function')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--name', required=False)
 @click.option('--image-uuid', required=False, type=click.UUID)
@@ -824,7 +812,7 @@ def create(config, name, image_uuid, file, code):
 @pass_obj
 def update(config, uuid, name, image_uuid, file, code):
     """
-    Function update sub-command. It updates a function totally or partially by providing a set of data.
+    It updates a function totally or partially by providing a set of data.
 
     >>> sharedcloud function create --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --name helloWorld --image-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --code "def handler(event): print('Hello World!')"
     >>> sharedcloud function create --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --name helloWorld --image-uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --file helloworld.py
@@ -852,11 +840,11 @@ def update(config, uuid, name, image_uuid, file, code):
     })
 
 
-@function.command(help='List Functions')
+@function.command(help='List all your functions')
 @pass_obj
 def list(config):
     """
-    Function list sub-command. It lists all the user's functions.
+    It lists all the user's functions.
 
     >>> sharedcloud function list
 
@@ -872,12 +860,12 @@ def list(config):
                    })
 
 
-@function.command(help='Deletes a Function')
+@function.command(help='Delete a function')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
     """
-    Function delete sub-command. It deletes a function by providing an identifier (UUID).
+    It deletes a function by providing an identifier (UUID).
 
     >>> sharedcloud function delete --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
 
@@ -889,12 +877,12 @@ def delete(config, uuid):
     })
 
 
-@function.command(help='Display the Functions\'s code')
+@function.command(help='Display the code of a function')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def code(config, uuid):
     """
-    Function code sub-command. It prints the code of a function into stdout by providing an identifier (UUID).
+    It prints the code of a function into stdout by providing an identifier (UUID).
 
     >>> sharedcloud function code --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
 
@@ -905,18 +893,14 @@ def code(config, uuid):
         '{}/api/v1/functions/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'code')
 
 
-@cli1.group(help='Create/List Runs')
+@cli.group(help='List and create new runs')
 @pass_obj
 def run(config):
-    """
-     Run command.
-
-     :param config: context object
-     """
+    """List and create new runs"""
     _exit_if_user_is_logged_out(config.token)
 
 
-@run.command(help='Creates a new Run')
+@run.command(help='Create a new run')
 @click.option('--function-uuid', required=True, type=click.UUID)
 @click.option('--parameters', required=True)
 @click.option('--bid-price', required=True, type=click.FLOAT)
@@ -924,7 +908,7 @@ def run(config):
 @pass_obj
 def create(config, function_uuid, parameters, bid_price, base_gpu_uuid):
     """
-    Run create sub-command. It creates a new run by providing a set of data.
+    It creates a new run by providing a set of data.
 
     It's important to notice that the "parameters" argument needs to be a tuple of tuples. Any other thing will raise a
     validation error.
@@ -945,7 +929,7 @@ def create(config, function_uuid, parameters, bid_price, base_gpu_uuid):
     })
 
 
-@run.command(help='Deletes a Run')
+@run.command(help='Delete a run')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
@@ -962,7 +946,7 @@ def delete(config, uuid):
     })
 
 
-@run.command(help='List Runs')
+@run.command(help='List all your runs')
 @pass_obj
 def list(config):
     """
@@ -982,22 +966,18 @@ def list(config):
                    })
 
 
-@cli1.group(help='List Jobs')
+@cli.group(help='List all your jobs')
 @pass_obj
 def job(config):
-    """
-    Job command.
-
-    :param config: context object
-    """
+    """List all your jobs"""
     _exit_if_user_is_logged_out(config.token)
 
 
-@job.command(help='List Jobs')
+@job.command(help='List all your jobs')
 @pass_obj
 def list(config):
     """
-    Job list sub-command. It lists all the user's jobs.
+    It lists all your jobs.
 
     >>> sharedcloud job list
 
@@ -1015,12 +995,12 @@ def list(config):
                    })
 
 
-@job.command(help='Display the Job\'s build logs')
+@job.command(help='Display the build logs of a job')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def logs(config, uuid):
     """
-    Job logs sub-command. It prints the logs of a job into stdout by providing an identifier (UUID).
+    It prints the logs of a job into stdout by providing an identifier (UUID).
 
     >>> sharedcloud job logs --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
 
@@ -1030,12 +1010,12 @@ def logs(config, uuid):
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'build_logs')
 
 
-@job.command(help='Display the Job\'s result')
+@job.command(help='Display the result of a job')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def result(config, uuid):
     """
-    Job result sub-command. It prints the result of a job into stdout by providing an identifier (UUID).
+    It prints the result of a job into stdout by providing an identifier (UUID).
 
     >>> sharedcloud job result --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
 
@@ -1045,12 +1025,12 @@ def result(config, uuid):
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'result')
 
 
-@job.command(help='Display the Job\'s stdout')
+@job.command(help='Display the stdout of a job')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def stdout(config, uuid):
     """
-    Job stdout sub-command. It prints the output of a job into stdout by providing an identifier (UUID).
+    It prints the output of a job into stdout by providing an identifier (UUID).
 
     >>> sharedcloud job stdout --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
 
@@ -1060,12 +1040,12 @@ def stdout(config, uuid):
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stdout')
 
 
-@job.command(help='Display the Job\'s stderr')
+@job.command(help='Display the stderr of a job')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def stderr(config, uuid):
     """
-    Job stderr sub-command. It prints the stderr of a job into stdout by providing an identifier (UUID).
+    It prints the stderr of a job into stdout by providing an identifier (UUID).
 
     >>> sharedcloud job stderr --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
 
@@ -1075,22 +1055,18 @@ def stderr(config, uuid):
         '{}/api/v1/jobs/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, 'stderr')
 
 
-@cli1.group(help='List the offers that are currently available')
+@cli.group(help='List the offers that are currently available in Sharedcloud')
 @pass_obj
 def offer(config):
-    """
-    Offer command.
-
-    :param config: context object
-     """
+    """List the offers that are currently available in Sharedcloud"""
     _exit_if_user_is_logged_out(config.token)
 
 
-@offer.command(help='List offers')
+@offer.command(help='List offers in Sharedcloud')
 @pass_obj
 def list(config):
     """
-    Offer list sub-command. It lists all the offers available
+    It lists all the offers available
 
 
     >>> sharedcloud offer list
@@ -1108,18 +1084,14 @@ def list(config):
                    })
 
 
-@cli1.group(help='Create/Update/Start/List Instances')
+@cli.group(help='List, create and modify your instances')
 @pass_obj
 def instance(config):
-    """
-    Instance command.
-
-    :param config: context object
-     """
+    """List, create and modify your instances"""
     _exit_if_user_is_logged_out(config.token)
 
 
-@instance.command(help='Creates a new Instance')
+@instance.command(help='Create a new instance')
 @click.option('--name', required=True)
 @click.option('--type', required=True, default='cpu', type=click.Choice(['cpu', 'gpu']))
 @click.option('--ask-price', required=True, type=click.FLOAT)
@@ -1128,7 +1100,7 @@ def instance(config):
 @pass_obj
 def create(config, name, type, ask_price, max_num_parallel_jobs, gpu_uuid):
     """
-    Instance create sub-command. It creates a new instance by providing a set of data.
+    It creates a new instance by providing a set of data.
 
     It's important to notice that the "max-num-parallel-jobs" argument defaults to 1 in case it's not provided
 
@@ -1154,12 +1126,11 @@ def create(config, name, type, ask_price, max_num_parallel_jobs, gpu_uuid):
             f.write(instance.get('uuid'))
 
 
-@instance.command(help='List Instances')
+@instance.command(help='List your instances')
 @pass_obj
 def list(config):
     """
-    Instance list sub-command. It lists all the user's instances
-
+    It lists all your instances
 
     >>> sharedcloud instance list
 
@@ -1179,7 +1150,7 @@ def list(config):
                    })
 
 
-@instance.command(help='Update an Instance')
+@instance.command(help='Update an instance')
 @click.option('--uuid', required=True, type=click.UUID)
 @click.option('--type', required=False, type=click.Choice(['cpu', 'gpu']))
 @click.option('--name', required=False)
@@ -1189,7 +1160,7 @@ def list(config):
 @pass_obj
 def update(config, uuid, type, name, ask_price, max_num_parallel_jobs, gpu_uuid):
     """
-    Instance update sub-command. It updates totally or partially a new instance by providing a set of data.
+    It updates totally or partially a new instance by providing a set of data.
 
     >>> sharedcloud instance update --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647 --name instance1 --type cpu --ask-price 2.0 --max-num-parallel-jobs 3
 
@@ -1211,12 +1182,12 @@ def update(config, uuid, type, name, ask_price, max_num_parallel_jobs, gpu_uuid)
     })
 
 
-@instance.command(help='Deletes an Instance')
+@instance.command(help='Delete an instance')
 @click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
 def delete(config, uuid):
     """
-    Instance delete sub-command. It deletes a run by providing an identifier (UUID).
+    It deletes a run by providing an identifier (UUID).
 
     >>> sharedcloud instance delete --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647
 
@@ -1233,12 +1204,12 @@ def delete(config, uuid):
             os.remove(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME)
 
 
-@instance.command(help='Starts an Instance')
+@instance.command(help='Start the active instance in your system')
 @click.option('--job-timeout', required=False, default=1800.0, type=click.FLOAT)
 @pass_obj
 def start(config, job_timeout):
     """
-    Instance start sub-command. It starts the instance active in the machine.
+    Starts the active instance in your system.
 
     It's important to notice that, by default, jobs are automatically timeout to 30 minutes. This can be changed by
     the argument "job_timeout", but it's strongly discouraged to do this.
