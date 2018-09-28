@@ -2,12 +2,58 @@
 
 Sharedcloud CLI is a client to interact with Sharedcloud.
  
-It allows you both to schedule functions and to rent out your computers to other users. 
-For a more detail insight please go [here](https://sharedcloud.io)
+It allows both to schedule functions and to rent out computers to other users without the need
+to change your home network. For a more detailed insight please go [here](https://sharedcloud.io)
 
 ### 1. Installation
 
 `pip install -U sharedcloud-cli`
+
+### 2. Sharedcloud CLI documentation
+
+You can find it [here](https://docs.sharedcloud.io/sharedcloud-cli)!
+
+### 3. Commands
+
+* cli
+    * [version](https://docs.sharedcloud.io/sharedcloud-cli/version)
+* auth
+    * [login](https://docs.sharedcloud.io/sharedcloud-cli/login)
+    * [logout](https://docs.sharedcloud.io/sharedcloud-cli/logout)
+* account
+    * [create](https://docs.sharedcloud.io/sharedcloud-cli/create-account)
+    * [update](https://docs.sharedcloud.io/sharedcloud-cli/update-account)
+    * [delete](https://docs.sharedcloud.io/sharedcloud-cli/delete-account)
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-account)
+* function
+    * [create](https://docs.sharedcloud.io/sharedcloud-cli/create-function)
+    * [update](https://docs.sharedcloud.io/sharedcloud-cli/update-function)
+    * [delete](https://docs.sharedcloud.io/sharedcloud-cli/delete-function)
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-functions)
+    * [show code](https://docs.sharedcloud.io/sharedcloud-cli/show-function-code)
+* run
+    * [create](https://docs.sharedcloud.io/sharedcloud-cli/create-run)
+    * [delete](https://docs.sharedcloud.io/sharedcloud-cli/delete-run)
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-runs)
+* image
+    * [download](https://docs.sharedcloud.io/sharedcloud-cli/download-image)
+    * [clean](https://docs.sharedcloud.io/sharedcloud-cli/clean-image)
+    * [update all](https://docs.sharedcloud.io/sharedcloud-cli/update-all-images)
+* instance
+    * [create](https://docs.sharedcloud.io/sharedcloud-cli/create-instance)
+    * [update](https://docs.sharedcloud.io/sharedcloud-cli/update-instance)
+    * [delete](https://docs.sharedcloud.io/sharedcloud-cli/delete-instance)
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-instances)
+* job
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-jobs)
+    * [show stdout](https://docs.sharedcloud.io/sharedcloud-cli/show-job-stdout)
+    * [show stderr](https://docs.sharedcloud.io/sharedcloud-cli/show-job-stderr)
+    * [show result](https://docs.sharedcloud.io/sharedcloud-cli/show-job-result)
+    * [show logs](https://docs.sharedcloud.io/sharedcloud-cli/show-job-logs)
+* offer
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-offers)
+* gpu
+    * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-gpus)
 
 ### 2. Reporting issues
 
