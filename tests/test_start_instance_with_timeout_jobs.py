@@ -18,7 +18,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_timing_ou
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )

@@ -10,6 +10,10 @@ import timeago
 from click import pass_obj
 from tabulate import tabulate
 
+
+__VERSION__ = '1.0.0'
+
+
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
 DATA_FOLDER = '{}/.sharedcloud'.format(os.path.expanduser('~'))
 
@@ -33,7 +37,7 @@ INSTANCE_STATUSES = {
 }
 
 INSTANCE_TYPES = {
-    'STANDARD': 1,
+    'CPU': 1,
     'GPU': 2
 }
 
@@ -59,6 +63,13 @@ def _read_instance_token():
     with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'r') as f:
         uuid = f.read()
     return uuid
+
+
+def _get_cli_version():
+    """
+    Returns the CLI version.
+    """
+    return __VERSION__
 
 
 def _exit_if_user_is_logged_out(token):
@@ -347,7 +358,6 @@ def _map_boolean_to_human_readable(boolean, resource, token):
 
 
 # Validators
-
 def _validate_at_least_one_but_only_one(ctx, main_field_value, main_field_key, other_field_key):
     """
     Validate that either "main_field" or "other_field" are passed into the CMD.
@@ -401,6 +411,18 @@ def cli1(config):
         os.makedirs(DATA_FOLDER)
 
     config.token = _read_user_token()
+    config.version = _get_cli_version()
+
+
+@cli1.command(help='Display CLI version')
+@pass_obj
+def version(config):
+    """
+    Version command. It displays the CLI version.
+
+    >>> sharedcloud version
+    """
+    click.echo(config.version)
 
 
 @cli1.group(help='Create/Delete/Update/List account details')
@@ -1099,7 +1121,7 @@ def instance(config):
 
 @instance.command(help='Creates a new Instance')
 @click.option('--name', required=True)
-@click.option('--type', required=True, default='standard', type=click.Choice(['standard', 'gpu']))
+@click.option('--type', required=True, default='cpu', type=click.Choice(['cpu', 'gpu']))
 @click.option('--ask-price', required=True, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', default=1, type=click.INT)
 @click.option('--gpu-uuid', required=False, type=click.UUID)
@@ -1110,11 +1132,11 @@ def create(config, name, type, ask_price, max_num_parallel_jobs, gpu_uuid):
 
     It's important to notice that the "max-num-parallel-jobs" argument defaults to 1 in case it's not provided
 
-    >>> sharedcloud instance create --name instance1 --type standard --ask-price 2.0 --max-num-parallel-jobs 3
+    >>> sharedcloud instance create --name instance1 --type cpu --ask-price 2.0 --max-num-parallel-jobs 3
 
     :param config: context object
     :param name: name of the instance
-    :param type: type of the instance. It can be either "gpu" or "standard"
+    :param type: type of the instance. It can be either "gpu" or "cpu"
     :param ask_price: min price for which the instance would be willing to process jobs
     :param max_num_parallel_jobs: max number of jobs that the instance is allowed to process in parallel
     """
@@ -1159,7 +1181,7 @@ def list(config):
 
 @instance.command(help='Update an Instance')
 @click.option('--uuid', required=True, type=click.UUID)
-@click.option('--type', required=False, type=click.Choice(['standard', 'gpu']))
+@click.option('--type', required=False, type=click.Choice(['cpu', 'gpu']))
 @click.option('--name', required=False)
 @click.option('--ask-price', required=False, type=click.FLOAT)
 @click.option('--max-num-parallel-jobs', required=False, type=click.INT)
@@ -1169,12 +1191,12 @@ def update(config, uuid, type, name, ask_price, max_num_parallel_jobs, gpu_uuid)
     """
     Instance update sub-command. It updates totally or partially a new instance by providing a set of data.
 
-    >>> sharedcloud instance update --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647 --name instance1 --type standard --ask-price 2.0 --max-num-parallel-jobs 3
+    >>> sharedcloud instance update --uuid 8b8b6cc2-ebde-418a-88ba-84e0d6f76647 --name instance1 --type cpu --ask-price 2.0 --max-num-parallel-jobs 3
 
     :param config: context object
     :param uuid: uuid of the instance
     :param name: name of the instance
-    :param type: type of the instance. It can be either "gpu" or "standard"
+    :param type: type of the instance. It can be either "gpu" or "cpu"
     :param ask_price: min price for which the instance would be willing to process jobs
     :param max_num_parallel_jobs: max number of jobs that the instance is allowed to process in parallel
     """

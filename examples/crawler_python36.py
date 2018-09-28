@@ -1,18 +1,18 @@
-# Credits: https://dev.to/pranay749254/build-a-simple-python-web-crawler
-
 import requests
 from bs4 import BeautifulSoup
 
 def handler(event):
-    page = int(event[0])
-    web_url = event[1]
-    if(page > 0):
-        url = web_url
+    url = event[0]
+
+    if(url):
+        print('Fetching the number of answers and comments from {}'.format(url))
         code = requests.get(url)
         plain = code.text
-        s = BeautifulSoup(plain, "html.parser")
-        for link in s.findAll('a', {'class':'s-access-detail-page'}):
-            tet = link.get('title')
-            print(tet)
-            tet_2 = link.get('href')
-            print(tet_2)
+        parser = BeautifulSoup(plain, "html.parser")
+
+        num_answers = len(parser.find_all('div', {'class': 'answer'}))
+        num_comments = len(parser.find_all('div', {'class': 'comment'}))
+
+        return 'Num Answers: {}, Num Comments: {}'.format(num_answers, num_comments)
+    else:
+        print('Please type a valid StackOverflow URL')

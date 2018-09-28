@@ -3,13 +3,13 @@ from tests.test_utils import TestUtils, TestWrapper
 
 
 # Workflow
-def test_user_updates_an_standard_instance_successfully():
+def test_user_updates_a_cpu_instance_successfully():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -28,7 +28,7 @@ def test_user_updates_an_standard_instance_successfully():
     TestWrapper.update_instance_successfully(
         uuid=instance_uuid,
         name=new_instance_name,
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5
     )
@@ -143,7 +143,7 @@ def test_user_updates_a_gpu_instance_successfully_not_passing_max_num_parallel_j
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
-def test_user_updates_a_gpu_instance_to_standard_instance_successfully():
+def test_user_updates_a_gpu_instance_to_cpu_instance_successfully():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -169,7 +169,7 @@ def test_user_updates_a_gpu_instance_to_standard_instance_successfully():
     TestWrapper.update_instance_successfully(
         uuid=instance_uuid,
         name=new_instance_name,
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5
     )
@@ -193,7 +193,7 @@ def test_user_updates_a_gpu_instance_to_standard_instance_successfully():
 def test_user_get_validation_error_when_updating_an_instance_while_being_logged_out():
     TestWrapper.update_instance_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5,
         error_code=1,
@@ -208,7 +208,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_missing_uuid()
     TestWrapper.login_successfully(username=username, password=password)
 
     TestWrapper.update_instance_unsuccessfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5,
         error_code=2,
@@ -241,13 +241,13 @@ def test_user_doesnt_get_validation_error_when_updating_a_gpu_instance_with_miss
 
 # Invalid Fields
 
-def test_user_gets_validation_error_when_changing_from_standard_to_gpu_and_still_providing_max_num_parallel_jobs():
+def test_user_gets_validation_error_when_changing_from_cpu_to_gpu_and_still_providing_max_num_parallel_jobs():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3,
     )
@@ -289,13 +289,13 @@ def test_user_gets_validation_error_when_changing_from_standard_to_gpu_and_still
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
-def test_user_gets_validation_error_when_changing_from_standard_to_gpu_and_not_changing_a_previously_set_max_num_parallel_jobs():
+def test_user_gets_validation_error_when_changing_from_cpu_to_gpu_and_not_changing_a_previously_set_max_num_parallel_jobs():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3,
     )
@@ -336,7 +336,7 @@ def test_user_gets_validation_error_when_changing_from_standard_to_gpu_and_not_c
 
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
-def test_user_gets_validation_error_when_changing_from_gpu_to_standard_and_still_providing_gpu():
+def test_user_gets_validation_error_when_changing_from_gpu_to_cpu_and_still_providing_gpu():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -363,7 +363,7 @@ def test_user_gets_validation_error_when_changing_from_gpu_to_standard_and_still
     TestWrapper.update_instance_unsuccessfully(
         uuid=instance_uuid,
         name=new_instance_name,
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid'],
@@ -392,7 +392,7 @@ def test_user_get_validation_error_when_updating_an_unknown_instance():
 
     TestWrapper.update_instance_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5,
         error_code=1,
@@ -428,7 +428,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_ask_pr
     TestWrapper.update_instance_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price='blabla',
         max_num_parallel_jobs=3,
         error_code=2,
@@ -446,7 +446,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_max_nu
     TestWrapper.update_instance_unsuccessfully(
         uuid=TestUtils.generate_uuid(),
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs='blabla',
         error_code=2,
@@ -462,7 +462,7 @@ def test_user_gets_validation_error_when_updating_by_providing_gpu_without_being
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -481,7 +481,7 @@ def test_user_gets_validation_error_when_updating_by_providing_gpu_without_being
     TestWrapper.update_instance_unsuccessfully(
         uuid=instance_uuid,
         name=new_instance_name,
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=2.5,
         max_num_parallel_jobs=5,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid'],
@@ -510,7 +510,7 @@ def test_user_gets_validation_error_when_updating_an_instance_with_a_too_low_ask
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -518,7 +518,7 @@ def test_user_gets_validation_error_when_updating_an_instance_with_a_too_low_ask
     TestWrapper.update_instance_unsuccessfully(
         uuid=instance_uuid,
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=0.0001,
         max_num_parallel_jobs=2,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid'],

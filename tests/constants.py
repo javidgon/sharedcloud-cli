@@ -47,4 +47,4 @@ class Message:
 
 class InstanceType:
     GPU = 'gpu'
-    STANDARD = 'standard'
+    CPU = 'cpu'

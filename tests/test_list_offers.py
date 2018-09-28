@@ -14,7 +14,7 @@ def test_user_sees_the_list_of_offers_successfully():
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD, ask_price=1.5, max_num_parallel_jobs=3)
+        type=InstanceType.CPU, ask_price=1.5, max_num_parallel_jobs=3)
 
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
@@ -27,7 +27,7 @@ def test_user_sees_the_list_of_offers_successfully():
 
     TestWrapper.check_list_offers_output(
         expected_instance_name=[instance_name],
-        expected_type=[InstanceType.STANDARD.upper()],
+        expected_type=[InstanceType.CPU.upper()],
         expected_gpu=['n/a'],
         expected_cuda_cores=['n/a'],
         expected_ask_price=['$1.800'],

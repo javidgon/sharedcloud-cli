@@ -8,13 +8,13 @@ from tests.test_utils import TestUtils, TestWrapper
 
 # Workflow
 
-def test_user_creates_an_standard_instance():
+def test_user_creates_a_cpu_instance():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -26,7 +26,7 @@ def test_user_creates_an_standard_instance():
         expected_ask_price=['1.5'],
         expected_num_running_jobs=['0'],
         expected_max_num_parallel_jobs=['3'],
-        expected_type=['STANDARD'],
+        expected_type=['CPU'],
         expected_gpu=['n/a'],
         expected_num_instances=1
     )
@@ -101,7 +101,7 @@ def test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_
     TestWrapper.login_successfully(username=username, password=password)
 
     first_instance_uuid, fist_instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -117,7 +117,7 @@ def test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_
     )
 
     second_instance_uuid, second_instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -148,7 +148,7 @@ def test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_
 def test_user_gets_validation_error_when_creating_an_instance_while_being_logged_out():
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3,
         error_code=1,
@@ -163,7 +163,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_name(
     TestWrapper.login_successfully(username=username, password=password)
 
     TestWrapper.create_instance_unsuccessfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3,
         error_code=2,
@@ -172,7 +172,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_name(
     TestWrapper.delete_account_successfully(uuid=account_uuid)
 
 
-def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing_type_because_standard_is_used_by_default():
+def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing_type_because_cpu_is_used_by_default():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
 
     TestWrapper.login_successfully(username=username, password=password)
@@ -194,7 +194,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_missing_ask_p
 
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         max_num_parallel_jobs=3,
         error_code=2,
         msg='Missing option "--ask-price"'
@@ -210,7 +210,7 @@ def test_user_doesnt_get_validation_error_when_creating_an_instance_with_missing
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
     )
 
@@ -269,7 +269,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_ask_pr
 
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price='blabla',
         max_num_parallel_jobs=3,
         error_code=2,
@@ -286,7 +286,7 @@ def test_user_get_validation_error_when_creating_an_instance_with_invalid_max_nu
 
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs='blabla',
         error_code=2,
@@ -303,7 +303,7 @@ def test_user_gets_validation_error_when_creating_by_providing_gpu_without_being
 
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=2,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid'],
@@ -321,7 +321,7 @@ def test_user_gets_validation_error_when_creating_an_instance_with_a_too_low_ask
 
     TestWrapper.create_instance_unsuccessfully(
         name=TestUtils.generate_random_seed(),
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=0.0001,
         max_num_parallel_jobs=2,
         gpu_uuid=Gpu.TITAN_V_12GB['uuid'],

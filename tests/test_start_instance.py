@@ -40,7 +40,7 @@ def test_start_instance_can_fetch_a_job_from_another_user():
     TestWrapper.login_successfully(username=instance_owner_username, password=instance_owner_password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
@@ -85,7 +85,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )

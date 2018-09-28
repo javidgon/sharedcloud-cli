@@ -105,6 +105,10 @@ class TestUtils:
         return cls.runner.invoke(cli1, ['logout'])
 
     @classmethod
+    def show_version(cls):
+        return cls.runner.invoke(cli1, ['version'])
+
+    @classmethod
     def list_functions(cls):
         config = Config(token=_read_user_token())
         return cls.runner.invoke(function, [

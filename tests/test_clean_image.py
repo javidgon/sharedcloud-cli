@@ -9,7 +9,7 @@ def test_user_cleans_an_image_successfully():
     TestWrapper.login_successfully(username=username, password=password)
 
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
-        type=InstanceType.STANDARD,
+        type=InstanceType.CPU,
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
