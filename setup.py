@@ -17,7 +17,7 @@ class NoseTest(TestCommand):
 
 
 setup(name='sharedcloud-cli',
-      version='0.0.1',
+      version='0.0.2',
       description='Command Line Interface (CLI) for Sharedcloud.',
       maintainer='José Vidal',
       maintainer_email='admin@sharedcloud.io',
