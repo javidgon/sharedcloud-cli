@@ -11,7 +11,7 @@ from click import pass_obj
 from tabulate import tabulate
 
 
-__VERSION__ = '0.0.1'
+__VERSION__ = '0.0.3'
 
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
@@ -112,8 +112,7 @@ def _create_resource(url, token, data):
         r = requests.post(url, data=data)
 
     if r.status_code == 201:
-        resource = r.json()
-        click.echo(resource.get('uuid'))
+        click.echo(r.json().get('uuid'))
     else:
         click.echo(r.content)
         exit(1)
@@ -178,8 +177,7 @@ def _show_field_value(url, token, field_name):
     r = requests.get(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
-        resource = r.json()
-        click.echo(resource.get(field_name))
+        click.echo(r.json().get(field_name))
     else:
         click.echo(r.content)
         exit(1)
@@ -205,7 +203,7 @@ def _update_resource(url, token, data):
     r = requests.patch(url, data=cleaned_data, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 200:
-        click.echo(data.get('uuid'))
+        click.echo(r.json().get('uuid'))
     elif r.status_code == 404:
         click.echo('Not found resource with this UUID')
         exit(1)
@@ -228,7 +226,7 @@ def _delete_resource(url, token, data):
     r = requests.delete(url, headers={'Authorization': 'Token {}'.format(token)})
 
     if r.status_code == 204:
-        click.echo(data.get('uuid'))
+        pass
     elif r.status_code == 404:
         click.echo('Not found resource with this UUID')
         exit(1)
@@ -435,73 +433,93 @@ def account(config):
 @account.command(help='Create a new account in Sharedcloud')
 @click.option('--email', required=True)
 @click.option('--username', required=True)
-@click.option('--password', required=True)
 @pass_obj
-def create(config, email, username, password):
+def create(config, email, username):
     """
     It creates a new user by providing a set of credentials.
 
-    >>> sharedcloud account create --email blabla@example.com --username blabla --password blabla12345
+    >>> sharedcloud account create --email blabla@example.com --username blabla
 
     :param config: context object
     :param email: user's email
     :param username: user's username
-    :param password: user's password
     """
+    password = click.prompt('Please enter a password', type=str)
+
     _create_resource('{}/api/v1/users/'.format(SHAREDCLOUD_CLI_URL), None, {
         'email': email,
         'username': username,
         'password': password
     })
 
+    click.echo('Account Created')
+
 
 @account.command(help='Update an account in Sharedcloud')
-@click.option('--uuid', required=True, type=click.UUID)
 @click.option('--email', required=True)
 @click.option('--username', required=False)
-@click.option('--password', required=False)
 @pass_obj
-def update(config, uuid, email, username, password):
+def update(config, email, username):
     """
-    It updates a user totally or partially by providing an identifier (UUID).
+    It updates a user totally or partially.
 
-    >>> sharedcloud account update --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138 --email blabla@example.com --username blabla --password blabla12345
+    >>> sharedcloud account update --email blabla@example.com --username blabla
 
     :param config: context object
-    :param uuid: user's uuid
     :param email: user's email
     :param username: user's username
-    :param password: user's password
     """
     _exit_if_user_is_logged_out(config.token)
 
-    _update_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
-        'uuid': uuid,
+    _update_resource('{}/api/v1/users/account/'.format(SHAREDCLOUD_CLI_URL), config.token, {
         'email': email,
-        'username': username,
-        'password': password
+        'username': username
     })
+    click.echo('Account Updated')
+
+    _logout()
+
+
+@account.command(help='Change password in Sharedcloud')
+@pass_obj
+def change_password(config):
+    """
+    It changes the password of the user.
+
+    >>> sharedcloud account change_password
+
+    :param config: context object
+    """
+    _exit_if_user_is_logged_out(config.token)
+
+    password = click.prompt('Please enter a new password', type=str)
+
+    _update_resource('{}/api/v1/users/account/'.format(SHAREDCLOUD_CLI_URL), config.token, {
+        'password': password,
+    })
+
+    click.echo('Password Changed')
 
     _logout()
 
 
 @account.command(help='Delete an account in Sharedcloud')
-@click.option('--uuid', required=True, type=click.UUID)
 @pass_obj
-def delete(config, uuid):
+def delete(config):
     """
-    It deletes a user by providing an identifier (UUID).
+    It deletes a user account.
 
-    >>> sharedcloud account delete --uuid 6ea7e5ce-afcc-4027-82a7-e01eeea6b138
+    >>> sharedcloud account delete
 
     :param config: context object
-    :param uuid: user's uuid
     """
     _exit_if_user_is_logged_out(config.token)
 
-    _delete_resource('{}/api/v1/users/{}/'.format(SHAREDCLOUD_CLI_URL, uuid), config.token, {
-        'uuid': uuid
-    })
+    click.confirm('Are you sure?', abort=True)
+
+    _delete_resource('{}/api/v1/users/account/'.format(SHAREDCLOUD_CLI_URL), config.token, {})
+
+    click.echo('Account Deleted')
 
     _logout()
 
@@ -547,16 +565,17 @@ def _login(username, password):
 
 @cli.command(help='Login into Sharedcloud')
 @click.option('--username', required=True)
-@click.option('--password', required=True)
-def login(username, password):
+def login(username):
     """
     It logs in the user into Sharedcloud by providing a username and password.
 
-    >>> sharedcloud login --username john --password blabla12345
+    >>> sharedcloud login --username john
 
     :param username: user's username
     :param password: user's password
     """
+    password = click.prompt('Please enter your password', type=str)
+
     _login(username, password)
 
 

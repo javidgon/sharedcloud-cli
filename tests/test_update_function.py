@@ -28,7 +28,7 @@ def test_user_updates_a_function_with_code_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_updates_a_function_with_file_successfully():
@@ -54,7 +54,7 @@ def test_user_updates_a_function_with_file_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -79,7 +79,7 @@ def test_user_get_validation_error_when_updating_a_function_with_missing_uuid():
         name=TestUtils.generate_random_seed(), file=file, error_code=2,
         msg='Missing option "--uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 def test_user_doesnt_get_validation_error_when_updating_a_function_with_missing_image_uuid_because_it_was_already_set():
     pass
@@ -101,7 +101,7 @@ def test_user_get_validation_error_when_updating_an_unknown_function():
         image_uuid=Image.STANDARD_NODE8['uuid'], file=file, error_code=1,
         msg=Message.NO_RESOURCE_FOUND)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_updating_a_function_with_invalid_code():
@@ -119,7 +119,7 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_code():
         error_code=1,
         msg='needs to have the following signature')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_updating_a_function_with_invalid_image_uuid():
@@ -133,4 +133,4 @@ def test_user_get_validation_error_when_updating_a_function_with_invalid_image_u
         uuid=account_uuid, name=TestUtils.generate_random_seed(), image_uuid='blabla', file=file, error_code=2,
         msg='Invalid value for "--image-uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

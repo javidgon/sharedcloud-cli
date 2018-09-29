@@ -61,7 +61,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_not_being
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_start_instance_and_process_two_batches_of_jobs_with_only_one_being_processed_because_the_other_bid_price_is_too_low():
@@ -120,4 +120,4 @@ def test_user_start_instance_and_process_two_batches_of_jobs_with_only_one_being
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

@@ -17,11 +17,11 @@ class NoseTest(TestCommand):
 
 
 setup(name='sharedcloud-cli',
-      version='0.0.2',
+      version='0.0.3',
       description='Command Line Interface (CLI) for Sharedcloud.',
-      maintainer='José Vidal',
+      maintainer='Sharedcloud',
       maintainer_email='admin@sharedcloud.io',
-      author='José Vidal',
+      author='Sharedcloud',
       author_email='admin@sharedcloud.io',
       url='https://github.com/sharedcloud/sharedcloud-cli',
       license='MIT',
@@ -52,7 +52,7 @@ setup(name='sharedcloud-cli',
       ],
       entry_points={
           "console_scripts": [
-              "sharedcloud = sharedcloud:cli",
+              "sharedcloud = sharedcloud_cli.main:cli",
           ],
       },
       classifiers=[

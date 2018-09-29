@@ -62,7 +62,7 @@ def test_start_instance_can_fetch_a_job_from_another_user():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=instance_owner_account_uuid)
+    TestWrapper.delete_account_successfully()
 
     TestWrapper.login_successfully(username=job_owner_username, password=job_owner_password)
 
@@ -73,7 +73,7 @@ def test_start_instance_can_fetch_a_job_from_another_user():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=job_owner_account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
@@ -130,7 +130,7 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logout
@@ -145,4 +145,4 @@ def test_user_gets_validation_error_when_trying_to_start_an_instance_without_hav
 
     TestWrapper.start_instance_unsuccessfully(error_code=1, msg=Message.NO_INSTANCE_FOUND)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

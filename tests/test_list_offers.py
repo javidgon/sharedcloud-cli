@@ -39,7 +39,7 @@ def test_user_sees_the_list_of_offers_successfully():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 #Logged out

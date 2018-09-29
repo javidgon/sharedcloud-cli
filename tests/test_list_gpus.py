@@ -21,7 +21,7 @@ def test_user_sees_the_list_of_gpus_successfully():
         expected_num_gpus=8,
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out

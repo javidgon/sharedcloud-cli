@@ -45,7 +45,7 @@ def test_user_updates_a_cpu_instance_successfully():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_updates_a_gpu_instance_successfully_passing_max_num_parallel_jobs_as_1():
@@ -93,7 +93,7 @@ def test_user_updates_a_gpu_instance_successfully_passing_max_num_parallel_jobs_
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_updates_a_gpu_instance_successfully_not_passing_max_num_parallel_jobs():
@@ -140,7 +140,7 @@ def test_user_updates_a_gpu_instance_successfully_not_passing_max_num_parallel_j
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_updates_a_gpu_instance_to_cpu_instance_successfully():
@@ -186,7 +186,7 @@ def test_user_updates_a_gpu_instance_to_cpu_instance_successfully():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -215,7 +215,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_missing_uuid()
         msg='Missing option "--uuid"'
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 def test_user_doesnt_get_validation_error_when_updating_a_gpu_instance_with_missing_gpu_because_was_previously_set():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -236,7 +236,7 @@ def test_user_doesnt_get_validation_error_when_updating_a_gpu_instance_with_miss
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Invalid Fields
@@ -287,7 +287,7 @@ def test_user_gets_validation_error_when_changing_from_cpu_to_gpu_and_still_prov
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 def test_user_gets_validation_error_when_changing_from_cpu_to_gpu_and_not_changing_a_previously_set_max_num_parallel_jobs():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -334,7 +334,7 @@ def test_user_gets_validation_error_when_changing_from_cpu_to_gpu_and_not_changi
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 def test_user_gets_validation_error_when_changing_from_gpu_to_cpu_and_still_providing_gpu():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -383,7 +383,7 @@ def test_user_gets_validation_error_when_changing_from_gpu_to_cpu_and_still_prov
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 def test_user_get_validation_error_when_updating_an_unknown_instance():
     account_uuid, email, username, password = TestWrapper.create_account_successfully()
@@ -399,7 +399,7 @@ def test_user_get_validation_error_when_updating_an_unknown_instance():
         msg=Message.NO_RESOURCE_FOUND
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_updating_an_instance_with_invalid_type():
@@ -417,7 +417,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_type()
         msg='Invalid value for "--type"'
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_updating_an_instance_with_invalid_ask_price():
@@ -435,7 +435,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_ask_pr
         msg='Invalid value for "--ask-price"'
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_updating_an_instance_with_invalid_max_num_parallel_jobs():
@@ -453,7 +453,7 @@ def test_user_get_validation_error_when_updating_an_instance_with_invalid_max_nu
         msg='Invalid value for "--max-num-parallel-jobs"'
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_validation_error_when_updating_by_providing_gpu_without_being_a_gpu_instance():
@@ -501,7 +501,7 @@ def test_user_gets_validation_error_when_updating_by_providing_gpu_without_being
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_validation_error_when_updating_an_instance_with_a_too_low_ask_price():
@@ -528,4 +528,4 @@ def test_user_gets_validation_error_when_updating_an_instance_with_a_too_low_ask
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

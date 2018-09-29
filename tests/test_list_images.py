@@ -26,7 +26,7 @@ def test_user_sees_the_list_of_images_successfully():
         expected_num_images=5
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_wants_to_see_only_the_downloaded_images():
@@ -54,7 +54,7 @@ def test_user_wants_to_see_only_the_downloaded_images():
     )
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_wants_to_see_only_the_downloaded_images_but_he_doesnt_have_an_instance():
@@ -69,7 +69,7 @@ def test_user_wants_to_see_only_the_downloaded_images_but_he_doesnt_have_an_inst
             expected_num_images=0
         )
     except AssertionError:
-        TestWrapper.delete_account_successfully(uuid=account_uuid)
+        TestWrapper.delete_account_successfully()
     else:
         raise AssertionError
 

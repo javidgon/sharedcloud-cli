@@ -13,7 +13,7 @@ def test_delete_instance_successfully():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -30,7 +30,7 @@ def test_user_get_validation_error_when_deleting_an_instance_with_missing_uuid()
 
     TestWrapper.delete_instance_unsuccessfully(error_code=2, msg='Missing option "--uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Invalid Fields
@@ -43,4 +43,4 @@ def test_user_get_validation_error_when_deleting_an_instance_with_invalid_uuid()
         uuid=TestUtils.generate_random_seed(),
         error_code=2, msg='Invalid value for "--uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

@@ -23,6 +23,7 @@ You can find it [here](https://docs.sharedcloud.io/sharedcloud-cli)!
 * account
     * [create](https://docs.sharedcloud.io/sharedcloud-cli/create-account)
     * [update](https://docs.sharedcloud.io/sharedcloud-cli/update-account)
+    * [change password](https://docs.sharedcloud.io/sharedcloud-cli/change-password)
     * [delete](https://docs.sharedcloud.io/sharedcloud-cli/delete-account)
     * [list](https://docs.sharedcloud.io/sharedcloud-cli/list-account)
 * function
@@ -71,4 +72,3 @@ Please also include the steps required to reproduce the problem if possible and 
 ### 3. Questions
 
 If you need help with how to use this library, please check the list of examples, if it is still unclear you can also open an issue.
-

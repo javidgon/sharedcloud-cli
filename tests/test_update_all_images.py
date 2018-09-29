@@ -22,7 +22,7 @@ def test_user_updates_all_images_successfully():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_wants_to_update_all_images_without_having_an_instance():
@@ -31,7 +31,7 @@ def test_user_wants_to_update_all_images_without_having_an_instance():
     TestWrapper.login_successfully(username=username, password=password)
     TestWrapper.update_all_images_unsuccessfully(error_code=1, msg=Message.NO_INSTANCE_FOUND)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_wants_to_update_all_images_without_having_a_downloaded_image():
@@ -49,7 +49,7 @@ def test_user_wants_to_update_all_images_without_having_a_downloaded_image():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out

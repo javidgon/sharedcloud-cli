@@ -35,7 +35,7 @@ def test_user_creates_a_run_without_gpu_requirements_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_creates_a_run_with_gpu_requirements_successfully():
@@ -78,7 +78,7 @@ def test_user_creates_a_run_with_gpu_requirements_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_validation_error_when_when_creating_by_providing_a_gpu_without_being_available():
@@ -109,7 +109,7 @@ def test_user_gets_validation_error_when_when_creating_by_providing_a_gpu_withou
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
@@ -134,7 +134,7 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -159,7 +159,7 @@ def test_user_get_validation_error_when_creating_a_run_with_missing_function_uui
         bid_price=2.0,
         error_code=2, msg='Missing option "--function-uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_creating_a_run_with_missing_parameters():
@@ -172,7 +172,7 @@ def test_user_get_validation_error_when_creating_a_run_with_missing_parameters()
         bid_price=2.0,
         error_code=2, msg='Missing option "--parameters"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_creating_a_run_with_missing_bid_price():
@@ -186,7 +186,7 @@ def test_user_get_validation_error_when_creating_a_run_with_missing_bid_price():
         parameters=parameters,
         error_code=2, msg='Missing option "--bid-price"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_validation_error_when_creating_a_run_with_gpu_requirements_with_missing_base_gpu():
@@ -207,7 +207,7 @@ def test_user_gets_validation_error_when_creating_a_run_with_gpu_requirements_wi
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 # Invalid fields
 
@@ -223,7 +223,7 @@ def test_user_get_validation_error_when_creating_a_run_with_invalid_value_for_bi
         bid_price='blabla',
         error_code=2, msg='Invalid value for "--bid-price"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_validation_error_when_creating_a_run_by_providing_base_gpu_without_relying_on_gpu_image():
@@ -245,7 +245,7 @@ def test_user_gets_validation_error_when_creating_a_run_by_providing_base_gpu_wi
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_validation_error_when_creating_a_run_with_a_too_low_bid_price():
@@ -267,4 +267,4 @@ def test_user_gets_validation_error_when_creating_a_run_with_a_too_low_bid_price
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

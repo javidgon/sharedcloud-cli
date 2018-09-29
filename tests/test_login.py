@@ -7,7 +7,7 @@ def test_user_logs_in_successfully():
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_doesnt_get_logged_in_automatically_after_account_creation():
@@ -17,7 +17,7 @@ def test_user_doesnt_get_logged_in_automatically_after_account_creation():
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_logs_in_overrides_previous_log_in():
@@ -33,22 +33,17 @@ def test_user_logs_in_overrides_previous_log_in():
         expected_balance_is_zero=True
     )
 
-    TestWrapper.delete_account_successfully(uuid=second_user_account_uuid)
+    TestWrapper.delete_account_successfully()
 
     TestWrapper.login_successfully(username=first_user_username, password=first_user_password)
 
-    TestWrapper.delete_account_successfully(uuid=first_user_account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Missing fields
 def test_user_gets_validation_error_when_login_with_missing_username():
     TestWrapper.login_unsuccessfully(
         password=TestUtils.generate_random_seed(), error_code=2, msg='Missing option "--username"')
-
-
-def test_user_gets_validation_error_when_login_with_missing_password():
-    TestWrapper.login_unsuccessfully(
-        username=TestUtils.generate_random_seed(), error_code=2, msg='Missing option "--password"')
 
 
 # Invalid fields

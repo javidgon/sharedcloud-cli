@@ -25,7 +25,7 @@ def test_user_creates_a_function_with_code_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_creates_a_function_with_file_successfully():
@@ -48,7 +48,7 @@ def test_user_creates_a_function_with_file_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -72,7 +72,7 @@ def test_user_get_validation_error_when_creating_a_function_with_missing_name():
         image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], file=file, error_code=2,
         msg='Missing option "--name"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_creating_a_function_with_missing_image_uuid():
@@ -86,7 +86,7 @@ def test_user_get_validation_error_when_creating_a_function_with_missing_image_u
         name=TestUtils.generate_random_seed(), file=file, error_code=2,
         msg='Missing option "--image-uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_creating_a_function_with_missing_both_code_and_file():
@@ -98,7 +98,7 @@ def test_user_get_validation_error_when_creating_a_function_with_missing_both_co
         name=TestUtils.generate_random_seed(), image_uuid=Image.WEB_CRAWLING_PYTHON36['uuid'], error_code=2,
         msg='Either "file" or "code" parameters need to be provided')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Invalid Fields
@@ -113,7 +113,7 @@ def test_user_get_validation_error_when_creating_a_function_with_invalid_code():
         name=TestUtils.generate_random_seed(), image_uuid=Image.STANDARD_NODE8['uuid'], file=file, error_code=1,
         msg='needs to have the following signature')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_get_validation_error_when_creating_a_function_with_invalid_image_uuid():
@@ -127,4 +127,4 @@ def test_user_get_validation_error_when_creating_a_function_with_invalid_image_u
         name=TestUtils.generate_random_seed(), image_uuid='blabla', file=file, error_code=2,
         msg='Invalid value for "--image-uuid"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

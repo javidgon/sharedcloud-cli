@@ -80,4 +80,4 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_failing()
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()

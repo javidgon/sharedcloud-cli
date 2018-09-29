@@ -4,7 +4,7 @@ import re
 import uuid
 from click.testing import CliRunner
 
-from sharedcloud import cli1, _read_user_token, function, run, instance, job, account, image, gpu, offer
+from sharedcloud_cli.main import cli, _read_user_token, function, run, instance, job, account, image, gpu, offer
 from tests.constants import Message
 
 
@@ -36,45 +36,39 @@ class TestUtils:
         if username:
             args.append('--username')
             args.append(username)
-        if password:
-            args.append('--password')
-            args.append(password)
 
-        return cls.runner.invoke(account, args, obj=config)
+        return cls.runner.invoke(account, args, obj=config, input=password)
 
     @classmethod
     def update_account(cls,
-                       uuid=None,
                        email=None,
-                       username=None,
-                       password=None):
+                       username=None):
         config = Config(token=_read_user_token())
         args = ['update']
 
-        if uuid:
-            args.append('--uuid')
-            args.append(uuid)
         if email:
             args.append('--email')
             args.append(email)
         if username:
             args.append('--username')
             args.append(username)
-        if password:
-            args.append('--password')
-            args.append(password)
 
         return cls.runner.invoke(account, args, obj=config)
 
     @classmethod
-    def delete_account(cls, uuid=None):
+    def change_password(cls,
+                        password=None):
+        config = Config(token=_read_user_token())
+        args = ['change_password']
+
+        return cls.runner.invoke(account, args, obj=config, input=password)
+
+    @classmethod
+    def delete_account(cls):
         config = Config(token=_read_user_token())
         args = ['delete']
 
-        if uuid:
-            args.append('--uuid')
-            args.append(uuid)
-        return cls.runner.invoke(account, args, obj=config)
+        return cls.runner.invoke(account, args, obj=config, input='yes')
 
     @classmethod
     def list_account(cls):
@@ -94,19 +88,16 @@ class TestUtils:
         if username:
             args.append('--username')
             args.append(username)
-        if password:
-            args.append('--password')
-            args.append(password)
 
-        return cls.runner.invoke(cli1, args)
+        return cls.runner.invoke(cli, args, input=password)
 
     @classmethod
     def logout(cls):
-        return cls.runner.invoke(cli1, ['logout'])
+        return cls.runner.invoke(cli, ['logout'])
 
     @classmethod
     def show_version(cls):
-        return cls.runner.invoke(cli1, ['version'])
+        return cls.runner.invoke(cli, ['version'])
 
     @classmethod
     def list_functions(cls):
@@ -469,6 +460,7 @@ class TestWrapper:
 
         r = TestUtils.create_account(email=email, username=username, password=password)
         assert r.exit_code == 0
+        assert Message.ACCOUNT_CREATED in r.output
         return TestUtils.extract_uuid(r.output), email, username, password
 
     @classmethod
@@ -478,26 +470,42 @@ class TestWrapper:
         assert msg in r.output
 
     @classmethod
-    def update_account_successfully(cls, uuid=None, email=None, username=None, password=None):
-        r = TestUtils.update_account(uuid=uuid, email=email, username=username, password=password)
+    def update_account_successfully(cls, email=None, username=None):
+        r = TestUtils.update_account(email=email, username=username)
         assert r.exit_code == 0
+        assert Message.ACCOUNT_UPDATED in r.output
         assert Message.LOGOUT_SUCCEEDED in r.output
 
     @classmethod
     def update_account_unsuccessfully(
-            cls, uuid=None, email=None, username=None, password=None, error_code=None, msg=None):
-        r = TestUtils.update_account(uuid=uuid, email=email, username=username, password=password)
+            cls, email=None, username=None, error_code=None, msg=None):
+        r = TestUtils.update_account(email=email, username=username)
         assert r.exit_code == error_code
         assert msg in r.output
 
     @classmethod
-    def delete_account_successfully(cls, uuid=None):
-        r = TestUtils.delete_account(uuid=uuid)
+    def change_password_successfully(cls, password=None):
+        r = TestUtils.change_password(password=password)
         assert r.exit_code == 0
+        assert Message.PASSWORD_CHANGED in r.output
+        assert Message.LOGOUT_SUCCEEDED in r.output
 
     @classmethod
-    def delete_account_unsuccessfully(cls, uuid=None, error_code=None, msg=None):
-        r = TestUtils.delete_account(uuid=uuid)
+    def change_password_unsuccessfully(cls, password=None, error_code=None, msg=None):
+        r = TestUtils.change_password(password=password)
+        assert r.exit_code == error_code
+        assert msg in r.output
+
+    @classmethod
+    def delete_account_successfully(cls):
+        r = TestUtils.delete_account()
+        assert r.exit_code == 0
+        assert Message.ACCOUNT_DELETED in r.output
+        assert Message.LOGOUT_SUCCEEDED in r.output
+
+    @classmethod
+    def delete_account_unsuccessfully(cls, error_code=None, msg=None):
+        r = TestUtils.delete_account()
         assert r.exit_code == error_code
         assert msg in r.output
 

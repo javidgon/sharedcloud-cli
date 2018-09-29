@@ -11,7 +11,7 @@ def test_user_logs_out_successfully():
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_gets_logout_automatically_after_account_deletion():
@@ -19,7 +19,7 @@ def test_user_gets_logout_automatically_after_account_deletion():
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
     TestWrapper.logout_unsuccessfully()
 

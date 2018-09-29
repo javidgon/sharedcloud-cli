@@ -13,7 +13,7 @@ def test_user_sees_his_account_information_successfully():
         expected_balance_is_zero=True
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out

@@ -13,7 +13,7 @@ def test_user_creates_an_account_successfully():
         expected_balance_is_zero=True
     )
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -22,7 +22,7 @@ def test_user_doesnt_get_validation_error_when_creating_an_account_while_being_l
 
     TestWrapper.login_successfully(username=username, password=password)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Missing fields
@@ -38,13 +38,6 @@ def test_user_gets_validation_error_when_creating_an_account_with_missing_userna
 
     TestWrapper.create_account_unsuccessfully(
         email=email, password=password, error_code=2, msg='Missing option "--username"')
-
-
-def test_user_gets_validation_error_when_creating_an_account_with_missing_password():
-    email, username, password = TestUtils.generate_credentials()
-
-    TestWrapper.create_account_unsuccessfully(
-        email=email, username=username, error_code=2, msg='Missing option "--password"')
 
 
 # Invalid Fields

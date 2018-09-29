@@ -26,7 +26,7 @@ def test_user_sees_the_list_of_functions_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_sees_the_code_of_a_function_successfully():
@@ -43,7 +43,7 @@ def test_user_sees_the_code_of_a_function_successfully():
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out

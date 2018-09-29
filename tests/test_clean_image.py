@@ -19,7 +19,7 @@ def test_user_cleans_an_image_successfully():
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_wants_to_clean_an_image_without_having_an_instance():
@@ -30,7 +30,7 @@ def test_user_wants_to_clean_an_image_without_having_an_instance():
     TestWrapper.clean_image_unsuccessfully(
         registry_path=Image.WEB_CRAWLING_PYTHON36['path'], error_code=1, msg=Message.NO_INSTANCE_FOUND)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 # Logged out
@@ -47,6 +47,6 @@ def test_user_gets_validation_error_when_cleaning_an_image_without_registry_path
 
     TestWrapper.clean_image_unsuccessfully(error_code=2, msg='Missing option "--registry-path"')
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 # Invalid fields

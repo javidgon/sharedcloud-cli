@@ -104,7 +104,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
 
 
 def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeeding():
@@ -203,4 +203,4 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 
-    TestWrapper.delete_account_successfully(uuid=account_uuid)
+    TestWrapper.delete_account_successfully()
