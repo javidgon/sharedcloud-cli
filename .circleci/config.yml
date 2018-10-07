@@ -24,7 +24,6 @@ jobs:
           password: $DOCKERHUB_PASSWORD
         environment: # environment variables for database
           DJANGO_SETTINGS_MODULE: sharedcloud.settings.ci
-          PREPARE_DB: True
 
     working_directory: ~/sharedcloud_cli
 

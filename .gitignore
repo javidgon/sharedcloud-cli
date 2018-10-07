@@ -107,3 +107,4 @@ venv.bak/
 
 # Local test runner for development
 run_tests.sh
+.idea/
