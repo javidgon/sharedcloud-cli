@@ -236,6 +236,28 @@ def _delete_resource(url, token, data):
     return r
 
 
+def _get_jobs(instance_uuid, token):
+    """
+    Get Jobs for the instance.
+
+    :param url: url to fetch the data
+    :param token: user token
+    """
+
+    r = requests.get('{}/api/v1/instances/{}/get-jobs/'.format(SHAREDCLOUD_CLI_URL, instance_uuid),
+                     headers={'Authorization': 'Token {}'.format(token)})
+
+    if r.status_code == 200:
+        pass
+    elif r.status_code == 404:
+        click.echo('Not found resource with this UUID')
+        exit(1)
+    else:
+        click.echo(r.content)
+        exit(1)
+    return r
+
+
 def _perform_instance_action(action, instance_uuid, token, data=None):
     """
     Generic method to update instances and to fetch jobs.
@@ -690,7 +712,7 @@ def clean(config, registry_path):
             click.echo(line + b'\n')
             exit(2)
     else:
-        _perform_instance_action('delete_image', instance_uuid, config.token, data={
+        _perform_instance_action('delete-image', instance_uuid, config.token, data={
             'image_registry_path': registry_path
         })
         for line in output.splitlines():
@@ -719,7 +741,7 @@ def download(config, registry_path):
         for line in error.splitlines():
             click.echo(line + b'\n')
     else:
-        _perform_instance_action('add_image', instance_uuid, config.token, data={
+        _perform_instance_action('add-image', instance_uuid, config.token, data={
             'image_registry_path': registry_path
         })
         for line in output.splitlines():
@@ -1343,7 +1365,7 @@ def start(config, job_timeout):
 
         # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
         while True:
-            r = _perform_instance_action('ping', instance_uuid, config.token)
+            r = _get_jobs(instance_uuid, config.token)
 
             # If they do have new jobs, we process them...
             jobs = r.json()
