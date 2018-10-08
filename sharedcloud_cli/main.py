@@ -11,7 +11,7 @@ from click import pass_obj
 from tabulate import tabulate
 
 
-__VERSION__ = '0.0.3'
+__VERSION__ = '0.0.4'
 
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
