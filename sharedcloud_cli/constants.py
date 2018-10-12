@@ -1,6 +1,6 @@
 import os
 
-__VERSION__ = '0.0.4'
+__VERSION__ = '0.0.5'
 
 
 DATETIME_FORMAT = '%d-%m-%Y %H:%M:%S'
