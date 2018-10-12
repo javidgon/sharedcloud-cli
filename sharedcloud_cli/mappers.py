@@ -66,7 +66,7 @@ def _map_non_formatted_money_to_version_with_currency(cost, resource, token):
     :param resource: resource containing all the values and keys
     :param token: user token
     """
-    return f'${cost:.3f}'
+    return '$%.3f' % cost
 
 
 def _map_duration_to_human_readable(duration, resource, token):
