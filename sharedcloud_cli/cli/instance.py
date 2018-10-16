@@ -1,5 +1,7 @@
+import json
 import multiprocessing
 import os
+import signal
 import subprocess
 import time
 
@@ -8,12 +10,14 @@ import requests
 from click import pass_obj
 
 from sharedcloud_cli.constants import SHAREDCLOUD_CLI_URL, INSTANCE_TYPES, SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, \
-    JOB_STATUSES
+    JOB_STATUSES, SESSION_STATUSES, DATA_FOLDER, SHAREDCLOUD_AGENT_CONTAINER_NAME, SHAREDCLOUD_AGENT_PORT, \
+    SHAREDCLOUD_INSTANCE_TUNNEL_CONTAINER_NAME, SHAREDCLOUD_AGENT_PAYLOAD_FILENAME, SHAREDCLOUD_SESSION_PORT, \
+    SHAREDCLOUD_SESSION_CONTAINER_NAME, SHAREDCLOUD_SESSION_TUNNEL_CONTAINER_NAME
 from sharedcloud_cli.mappers import _map_instance_status_to_human_representation, _map_instance_type_to_human_readable, \
     _map_datetime_obj_to_human_representation
 from sharedcloud_cli.utils import _exit_if_user_is_logged_out, _create_resource, _list_resource, _update_resource, \
     _delete_resource, _update_image, _get_instance_token_or_exit_if_there_is_none, _perform_instance_action, \
-    _update_all_images, _get_jobs
+    _update_all_images
 
 
 @click.group(help='List, create and modify your instances')
@@ -56,6 +60,41 @@ def create(config, name, type, ask_price, max_num_parallel_jobs, gpu_uuid):
         instance = r.json()
         with open(SHAREDCLOUD_CLI_INSTANCE_CONFIG_FILENAME, 'w') as f:
             f.write(instance.get('uuid'))
+
+
+def _download_required_dependencies():
+    """
+    Download all the required docker images.
+    :return:
+    """
+    args = ['docker', 'pull', 'sharedcloud/sharedcloud-tunnel-client']
+
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = p.communicate()
+
+    if p.returncode != 0:
+        click.echo('[ERROR] {}'.format(error))
+
+    args = ['docker', 'pull', 'sharedcloud/sharedcloud-agent']
+
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = p.communicate()
+
+    if p.returncode != 0:
+        click.echo('[ERROR] {}'.format(error))
+
+
+@instance.command(help='Download dependencies')
+@pass_obj
+def download_dependencies(config):
+    """
+    It downloads the required dependencies.
+
+    >>> sharedcloud instance download_dependencies
+
+    :param config: context object
+    """
+    _download_required_dependencies()
 
 
 @instance.command(help='List your instances')
@@ -152,6 +191,81 @@ def start(config, job_timeout):
     :param uuid: uuid of the instance
     """
 
+    def _run_agent_container(name=None, payload_filename=None, local_folder=None):
+        """
+        Run a background agent in charge of listening for new jobs or sessions.
+
+        :param name: name of the container
+        :param local_folder: local folder that's going to be shared
+        :return: process
+        """
+        cmd_args = [
+            'docker', 'run', '--rm', '--name', name,
+            '-e', 'PAYLOAD_FILENAME={}'.format(payload_filename),
+            '-p', '{}:{}'.format(4005, 4005),
+            '-v', '{}:/tmp'.format(local_folder),
+            'sharedcloud/sharedcloud-agent'
+        ]
+
+        return subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def _create_tunnel(
+            http_user=None, http_password=None, name=None, token=None, linked_container_name=None,
+            linked_container_port=None, proxy_ip=None, tcp_port=None, image=None):
+        """
+        Create a tunnel with the proxy machine.
+        :param http_user: HTTP user credential
+        :param http_password: HTTP password credential
+        :param name: container name
+        :param token: authentication token (with the server side of the tunnel)
+        :param linked_container_name: name of the linked container
+        :param linked_container_port: exposed port of the linked container
+        :param proxy_ip: ip address of the proxy machine
+        :param tcp_port: tcp port of the proxy machine
+        :param image: docker image of the tunnel
+        :return:
+        """
+        cmd_args = [
+            'docker', 'run', '--rm', '--name', name,
+            '--link', '{}:{}'.format(linked_container_name, linked_container_name),
+            '-e', 'SERVER_ADDR={}'.format(proxy_ip),
+            '-e', 'SERVER_PORT={}'.format(tcp_port),
+            '-e', 'LOCAL_IP={}'.format(linked_container_name),
+            '-e', 'LOCAL_PORT={}'.format(linked_container_port),
+            '-e', 'TOKEN={}'.format(token),
+            '-e', 'USER={}-{}'.format(token, linked_container_name),
+            '-e', 'HTTP_USER={}'.format(http_user),
+            '-e', 'HTTP_PWD={}'.format(http_password),
+            '-e', 'USE_ENCRYPTION=true',
+            '-e', 'USE_COMPRESSION=true',
+            '-e', 'CUSTOM_DOMAINS={}'.format(proxy_ip),
+            image
+        ]
+
+        return subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def _stop_and_delete_container(name):
+        """
+        Stop and delete container. Also, wait until it's done.
+        :param name: name of the container
+        :return:
+        """
+        cmd_args = ['docker', 'rm', '-f', name]
+
+        p = subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p.communicate()
+
+    def _exit_if_docker_daemon_is_not_running():
+        """
+        Exit if the docker daemon is not running in this precise moment.
+        """
+        p = subprocess.Popen(
+            ['docker', 'ps'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p.communicate()
+
+        if p.returncode != 0:
+            exit('Is the Docker daemon running in your machine?')
+
     def _update_job(job_uuid, data, token):
         """
         Updates a job in Sharedcloud. It's mostly used to send the results.
@@ -166,7 +280,21 @@ def start(config, job_timeout):
             raise Exception(r.content)
         return r
 
-    def _run_container(job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path):
+    def _update_session(session_uuid, data, token):
+        """
+        Updates a session in Sharedcloud. It's mostly used to update the status.
+
+        :param session_uuid: session uuid
+        :param data: dict containing the data to change
+        :param token: user token
+        """
+        r = requests.patch('{}/api/v1/sessions/{}/'.format(SHAREDCLOUD_CLI_URL, session_uuid),
+                           data=data, headers={'Authorization': 'Token {}'.format(token)})
+        if r.status_code != 200:
+            raise Exception(r.content)
+        return r
+
+    def _run_job_container(job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path):
         """
         Runs a container based on the arguments provided.
 
@@ -189,7 +317,6 @@ def start(config, job_timeout):
 
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = p.communicate()
-
         if p.returncode != 0:
             click.echo('[ERROR] Job {} has failed :('.format(job_uuid))
             if job_requires_gpu:
@@ -200,16 +327,26 @@ def start(config, job_timeout):
 
         return output, error, has_failed
 
-    def _exit_if_docker_daemon_is_not_running():
+    def _run_session_container(name=None, image_registry_path=None):
         """
-        Exit if the docker daemon is not running in this precise moment.
+        Run a Jupyter Notebook Session container.
+        :param name: name of the container
+        :param image_registry_path: image that this container will use
+        :return: process
         """
-        p = subprocess.Popen(
-            ['docker', 'ps'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, error = p.communicate()
+        click.echo('[INFO] Downloading required image...')
+        cmd_args = ['docker', 'pull', image_registry_path]
 
-        if error:
-            exit('Is the Docker daemon running in your machine?')
+        p = subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p.communicate()
+        if p.returncode != 0:
+            click.echo('[ERROR] Image could not be downloaded')
+        else:
+            click.echo('[INFO] Done. Serving the Notebook Session now.')
+
+        cmd_args = ['docker', 'run', '--rm', '-p', '8000:8000', '--name', name, image_registry_path]
+
+        return subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def _job_loop(
             config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code):
@@ -231,7 +368,7 @@ def start(config, job_timeout):
         build_logs = _update_image(job_image_registry_path)
 
         # After the image has been generated, we run our container and calculate our result
-        output, error, has_failed = _run_container(
+        output, error, has_failed = _run_job_container(
             job_uuid, job_wrapped_code, job_requires_gpu, job_image_registry_path)
 
         _update_job(
@@ -242,63 +379,151 @@ def start(config, job_timeout):
                 "status": JOB_STATUSES['FAILED'] if has_failed else JOB_STATUSES['SUCCEEDED']
             }, config.token)
 
-    instance_uuid = _get_instance_token_or_exit_if_there_is_none()
+    def _read_payload(payload_filepath):
+        """
+        Read payload. Afterwards, clean up the file.
+        :param payload_filepath: payload filepath
+        :return: payload
+        """
+        payload = '{}'
+        if os.path.exists(payload_filepath):
+            with open(payload_filepath, 'r') as content_file:
+                payload = content_file.read()
+            os.remove(payload_filepath)
+        return json.loads(payload)
 
     _exit_if_docker_daemon_is_not_running()
 
+    def _clean_up(error_message):
+        click.echo(error_message)
+        _stop_and_delete_container(SHAREDCLOUD_AGENT_CONTAINER_NAME)
+        _stop_and_delete_container(SHAREDCLOUD_INSTANCE_TUNNEL_CONTAINER_NAME)
+        _stop_and_delete_container(SHAREDCLOUD_SESSION_CONTAINER_NAME)
+        _stop_and_delete_container(SHAREDCLOUD_SESSION_TUNNEL_CONTAINER_NAME)
+
+        _perform_instance_action('stop', instance_uuid, config.token)
+
+        click.echo('Instance {} has just stopped!'.format(instance_uuid))
+
+    instance_uuid = _get_instance_token_or_exit_if_there_is_none()
+
+
     try:
-        # First, we let our remote know that we are starting the instance
-        _perform_instance_action('start', instance_uuid, config.token)
+        def sigterm_handler(signal, frame):
+            raise KeyboardInterrupt()
+
+        signal.signal(signal.SIGTERM, sigterm_handler)
+
+        click.echo('[INFO] Downloading required dependencies...')
+        _download_required_dependencies()
+
         click.echo('[INFO] Updating all downloaded images...')
         _update_all_images(config)
 
-        click.echo('[INFO] Ready to take Jobs...')
+        # Start the instance
+        r = _perform_instance_action('start', instance_uuid, config.token)
 
-        # Second, we are going to ask the remote, each x seconds, if they have new jobs for us
+        instance = r.json()
+        click.echo('[INFO] Initializing Instance "{}"...'.format(instance.get('name')))
+
+        # Run the Sharedcloud-agent
+        _run_agent_container(name=SHAREDCLOUD_AGENT_CONTAINER_NAME, payload_filename=SHAREDCLOUD_AGENT_PAYLOAD_FILENAME,
+                             local_folder=DATA_FOLDER)
+        time.sleep(3)
+        # Create instance tunnel to communicate with the Proxy
+        _create_tunnel(http_user='instance', http_password=config.token,
+                       name=SHAREDCLOUD_INSTANCE_TUNNEL_CONTAINER_NAME,
+                       token=instance_uuid,
+                       linked_container_name=SHAREDCLOUD_AGENT_CONTAINER_NAME,
+                       linked_container_port=SHAREDCLOUD_AGENT_PORT,
+                       proxy_ip=instance.get('proxy_ip'),
+                       tcp_port=instance.get('tcp_port'), image='sharedcloud/sharedcloud-tunnel-client')
+
+        click.echo('[INFO] Ready to process Jobs...')
+
+        payload_filepath = '{}/{}'.format(DATA_FOLDER, SHAREDCLOUD_AGENT_PAYLOAD_FILENAME)
+
         while True:
-            r = _get_jobs(instance_uuid, config.token)
+            data = _read_payload(payload_filepath)
+            if data:
+                type = data.get('type')
+                if type == 'JOB':
+                    # If they do have new jobs, we process them...
+                    jobs = data.get('data')
+                    click.echo('[INFO] {} job/s arrived, please be patient...'.format(len(jobs)))
+                    processes = {}
+                    for job in jobs:
+                        # We extract some useful data about the job/instance that we are going to need
+                        job_uuid = job.get('job_uuid')
+                        click.echo('[INFO] Starting Job {}...'.format(job_uuid))
 
-            # If they do have new jobs, we process them...
-            jobs = r.json()
-            num_jobs = len(jobs)
-            if num_jobs > 0:
-                click.echo('[INFO] {} job/s arrived, please be patient...'.format(num_jobs))
+                        job_requires_gpu = job.get('requires_gpu')
+                        job_image_registry_path = job.get('image_registry_path')
+                        job_wrapped_code = job.get('wrapped_code')
 
-            processes = {}
-            for job in jobs:
-                # We extract some useful data about the job/instance that we are going to need
-                job_uuid = job.get('job_uuid')
-                click.echo('[INFO] Starting Job {}...'.format(job_uuid))
+                        processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
+                            config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code))
 
-                job_requires_gpu = job.get('requires_gpu')
-                job_image_registry_path = job.get('image_registry_path')
-                job_wrapped_code = job.get('wrapped_code')
+                    for job_uuid, process in processes.items():
+                        process.start()
 
-                processes[job_uuid] = multiprocessing.Process(target=_job_loop, name="_job_loop", args=(
-                    config, job_uuid, job_requires_gpu, job_image_registry_path, job_wrapped_code))
+                    completed_processes = []
+                    for job_uuid, process in processes.items():
+                        process.join(job_timeout)  # 30 minutes as default timeout
 
-            for job_uuid, process in processes.items():
-                process.start()
+                        if process.is_alive():
+                            for job_uuid, process in processes.items():
+                                if process not in completed_processes:
+                                    _update_job(
+                                        job_uuid, {
+                                            "status": JOB_STATUSES['TIMEOUT']
+                                        }, config.token
+                                    )
+                                process.terminate()
+                        else:
+                            completed_processes.append(process)
 
-            for job_uuid, process in processes.items():
-                process.join(job_timeout)  # 30 minutes as default timeout
+                    click.echo('[INFO] All jobs were completed.')
+                elif type == 'SESSION':
+                    session = data.get('data')
+                    session_uuid = session.get('session_uuid')
 
-                if process.is_alive():
-                    _update_job(
-                        job_uuid, {
-                            "status": JOB_STATUSES['TIMEOUT']
-                        }, config.token
-                    )
-                    process.terminate()
+                    response = _update_session(
+                        session_uuid, {
+                            "status": SESSION_STATUSES['IN_PROGRESS']
+                        }, config.token)
 
-            if num_jobs > 0:
-                click.echo('[INFO] All jobs were completed.')
+                    session = response.json()
+                    session_proxy_ip = session.get('proxy_ip')
+                    session_tcp_port = session.get('tcp_port')
+                    session_http_user = 'session'
+                    session_http_password = session.get('password')
+                    session_image_registry_path = session.get('image_registry_path')
 
-            # We wait 5 seconds until the next check
+                    click.echo('[INFO] Initializing Notebook Session {}... (Please don\'t stop the server)'.format(
+                        session_uuid))
+
+                    p = _run_session_container(name=SHAREDCLOUD_SESSION_CONTAINER_NAME,
+                                               image_registry_path=session_image_registry_path)
+                    time.sleep(5)
+
+                    # Create session tunnel to communicate with the Proxy
+                    p = _create_tunnel(http_user=session_http_user, http_password=session_http_password,
+                                       name=SHAREDCLOUD_SESSION_TUNNEL_CONTAINER_NAME,
+                                       token=instance_uuid,
+                                       linked_container_name=SHAREDCLOUD_SESSION_CONTAINER_NAME,
+                                       linked_container_port=SHAREDCLOUD_SESSION_PORT,
+                                       proxy_ip=session_proxy_ip,
+                                       tcp_port=session_tcp_port, image='sharedcloud/sharedcloud-tunnel-client')
+
+                    p.communicate()
+                    if p.returncode != 0:
+                        _stop_and_delete_container(SHAREDCLOUD_SESSION_CONTAINER_NAME)
+
+                    click.echo('[INFO] Notebook Session {} has finished.'.format(session_uuid))
+
             time.sleep(5)
 
     except (Exception, KeyboardInterrupt) as e:
-        click.echo(e)
-        click.echo('Instance {} has just stopped!'.format(instance_uuid))
-        _perform_instance_action('stop', instance_uuid, config.token)
+        _clean_up(e)
         exit(1)

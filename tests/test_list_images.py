@@ -52,7 +52,6 @@ def test_user_wants_to_see_only_the_downloaded_images():
         ],
         expected_num_images=1
     )
-
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
     TestWrapper.delete_account_successfully()
 

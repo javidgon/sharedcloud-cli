@@ -22,6 +22,9 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_timing_ou
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
+
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -36,15 +39,15 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_timing_ou
     )
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={
-        'job_timeout': 10
+        'job_timeout': 40
     })
     p.start()
-    time.sleep(5)
+    time.sleep(50)
     TestWrapper.check_list_jobs_output(
         expected_status=['IN_PROGRESS', 'IN_PROGRESS', 'IN_PROGRESS'],
         expected_num_jobs=3
     )
-    p.join(60.0)  # 60 seconds of timeout
+    p.join(40.0)  # 40 seconds of timeout
     p.terminate()
 
     r, job_uuids = TestWrapper.check_list_jobs_output(
@@ -78,6 +81,8 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_timing_ou
     )
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 

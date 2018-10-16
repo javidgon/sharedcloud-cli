@@ -135,9 +135,14 @@ def test_user_creates_an_instance_that_overrides_old_instance_as_the_active_one_
         expected_num_instances=2
     )
 
+    p.join(1.0)
     p.terminate()
 
+    TestWrapper.stop_instance_successfully(uuid=second_instance_uuid)
+
     TestWrapper.delete_instance_successfully(uuid=second_instance_uuid)
+
+    TestWrapper.stop_instance_successfully(uuid=first_instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=first_instance_uuid)
 

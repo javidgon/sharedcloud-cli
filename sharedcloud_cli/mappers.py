@@ -2,7 +2,7 @@ import datetime
 
 import timeago
 
-from sharedcloud_cli.constants import DATETIME_FORMAT, JOB_STATUSES, INSTANCE_STATUSES, INSTANCE_TYPES
+from sharedcloud_cli.constants import DATETIME_FORMAT, JOB_STATUSES, INSTANCE_STATUSES, INSTANCE_TYPES, SESSION_STATUSES
 
 
 def _map_datetime_obj_to_human_representation(datetime_obj, resource, token):
@@ -28,6 +28,19 @@ def _map_job_status_to_human_representation(status, resource, token):
     :param token: user token
     """
     for status_name, id in JOB_STATUSES.items():
+        if id == status:
+            return status_name
+
+
+def _map_session_status_to_human_representation(status, resource, token):
+    """
+    Map an Session Status type code (e.g., 1, 2) to a human readable name.
+
+    :param status: integer with the value that we want to transform
+    :param resource: resource containing all the values and keys
+    :param token: user token
+    """
+    for status_name, id in SESSION_STATUSES.items():
         if id == status:
             return status_name
 

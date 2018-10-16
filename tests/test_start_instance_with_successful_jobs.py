@@ -9,7 +9,7 @@ from tests.test_utils import TestUtils, TestWrapper
 
 # Workflow
 def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeeding():
-    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/long_running_func_python36.py'
     parameters = '((1,),(2,),(3,))'
 
     account_uuid, email, username, password = TestWrapper.create_beta_account_successfully()
@@ -21,6 +21,9 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
+
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -33,11 +36,9 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
         expected_status=['CREATED', 'CREATED', 'CREATED'],
         expected_num_jobs=3
     )
-
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
-    time.sleep(5)
-
+    time.sleep(45)
     TestWrapper.check_list_instances_output(
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
@@ -65,7 +66,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
         msg=Message.JOBS_STILL_RUNNING
     )
 
-    p.join(30.0)  # 30 seconds of timeout
+    p.join(45.0)  # 45 seconds of timeout
     p.terminate()
 
     r, job_uuids = TestWrapper.check_list_jobs_output(
@@ -100,6 +101,8 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
+
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
@@ -108,7 +111,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_succeedin
 
 
 def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeeding():
-    file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
+    file = os.path.dirname(os.path.abspath(__file__)) + '/files/long_running_func_python36.py'
     parameters = '((1,),(2,),(3,))'
 
     account_uuid, email, username, password = TestWrapper.create_beta_account_successfully()
@@ -120,6 +123,9 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
         ask_price=1.5,
         max_num_parallel_jobs=2
     )
+
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -135,8 +141,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
-    time.sleep(5)
-
+    time.sleep(45)
     TestWrapper.check_list_instances_output(
         expected_uuid=[instance_uuid],
         expected_name=[instance_name],
@@ -164,7 +169,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
         msg=Message.JOBS_STILL_RUNNING
     )
 
-    p.join(40.0)  # 40 seconds of timeout
+    p.join(100.0)  # 100 seconds of timeout
     p.terminate()
 
     r, job_uuids = TestWrapper.check_list_jobs_output(
@@ -198,6 +203,8 @@ def test_user_start_instance_and_process_two_batches_of_jobs_that_end_up_succeed
     )
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
