@@ -36,6 +36,7 @@ class Gpu:
 
 
 class Message:
+    NO_GPU_AVAILABLE = 'this GPU model is currently not available'
     LOGIN_SUCCEEDED = 'Login Succeeded'
     LOGOUT_SUCCEEDED = 'Logout Succeeded'
     ACCOUNT_UPDATED = 'Account Updated'
@@ -45,11 +46,12 @@ class Message:
     YOU_ARE_LOGOUT_WARNING = 'You seem to be logged out. Please log in first'
     ALREADY_LOGGED_OUT = 'You are already logged out'
     NO_INSTANCE_FOUND = 'Instance not found in this computer'
+    NO_ENTITY_FOUND = 'object does not exist.'
     NO_RESOURCE_FOUND = 'Not found resource with this UUID'
     JOBS_STILL_RUNNING = 'Please wait until they are finished'
     PASSWORD_TOO_COMMON = 'This password is too common'
     PASSWORD_TOO_SHORT = 'This password is too short'
-
+    BALANCE_BIGGER_THAN_ZERO = 'you need a balance higher than 0'
 
 class InstanceType:
     GPU = 'gpu'

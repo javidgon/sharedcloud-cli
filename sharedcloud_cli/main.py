@@ -4,6 +4,8 @@ import click
 
 from sharedcloud_cli.cli.account import account
 from sharedcloud_cli.cli.function import function
+from sharedcloud_cli.cli.notebook import notebook
+from sharedcloud_cli.cli.session import session
 from sharedcloud_cli.cli.gpu import gpu
 from sharedcloud_cli.cli.image import image
 from sharedcloud_cli.cli.instance import instance
@@ -40,6 +42,8 @@ cli.add_command(logout)
 cli.add_command(function)
 cli.add_command(run)
 cli.add_command(job)
+cli.add_command(notebook)
+cli.add_command(session)
 cli.add_command(image)
 cli.add_command(offer)
 cli.add_command(gpu)

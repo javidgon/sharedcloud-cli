@@ -43,7 +43,6 @@ def test_user_creates_a_run_with_gpu_requirements_successfully():
     file = os.path.dirname(os.path.abspath(__file__)) + '/files/func_python36.py'
 
     account_uuid, email, username, password = TestWrapper.create_beta_account_successfully()
-
     TestWrapper.login_successfully(username=username, password=password)
 
     TestWrapper.check_account_output(
@@ -55,12 +54,13 @@ def test_user_creates_a_run_with_gpu_requirements_successfully():
     function_uuid, function_name = TestWrapper.create_function_successfully(
         image_uuid=Image.TENSORFLOW_PYTHON36['uuid'], file=file)
 
+    TestWrapper.download_dependencies_successfully()
+
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.GPU, ask_price=1.0, max_num_parallel_jobs=1, gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
-
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
-    time.sleep(5)
+    time.sleep(30)
     run_uuid = TestWrapper.create_run_successfully(
         function_uuid=function_uuid, parameters=parameters, bid_price=2.0, base_gpu_uuid=Gpu.TITAN_V_12GB['uuid'])
 
@@ -73,6 +73,8 @@ def test_user_creates_a_run_with_gpu_requirements_successfully():
 
     p.join(5.0)  # 5 seconds of timeout
     p.terminate()
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
@@ -130,7 +132,7 @@ def test_user_tries_to_create_a_run_but_his_balance_is_insufficient():
 
     TestWrapper.create_run_unsuccessfully(
         function_uuid=function_uuid, parameters='((1,),(2,))', bid_price=2.0,
-        error_code=1, msg='you need a balance higher than 0 to create new runs')
+        error_code=1, msg=Message.BALANCE_BIGGER_THAN_ZERO)
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
 

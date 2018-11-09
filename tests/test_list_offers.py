@@ -16,6 +16,8 @@ def test_user_sees_the_list_of_offers_successfully():
     instance_uuid, instance_name = TestWrapper.create_instance_successfully(
         type=InstanceType.CPU, ask_price=1.5, max_num_parallel_jobs=3)
 
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -23,7 +25,7 @@ def test_user_sees_the_list_of_offers_successfully():
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
-    time.sleep(10)
+    time.sleep(20)
 
     TestWrapper.check_list_offers_output(
         expected_instance_name=[instance_name],
@@ -32,10 +34,12 @@ def test_user_sees_the_list_of_offers_successfully():
         expected_cuda_cores=['n/a'],
         expected_ask_price=['$1.800'],
     )
-
+    p.join(1.0)
     p.terminate()
 
     TestWrapper.delete_function_successfully(uuid=function_uuid)
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 

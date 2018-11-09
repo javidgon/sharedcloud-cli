@@ -13,6 +13,7 @@ def test_user_cleans_an_image_successfully():
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])

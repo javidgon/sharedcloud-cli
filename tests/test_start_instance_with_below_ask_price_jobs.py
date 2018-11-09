@@ -21,6 +21,9 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_not_being
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
+
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -36,7 +39,7 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_not_being
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
-    time.sleep(5)
+    time.sleep(30)
 
     TestWrapper.check_list_instances_output(
         expected_uuid=[instance_uuid],
@@ -52,10 +55,13 @@ def test_user_start_instance_and_process_one_batch_of_jobs_that_end_up_not_being
         expected_status=['CREATED', 'CREATED', 'CREATED'],
         expected_num_jobs=3
     )
+    p.join(1.0)
     p.terminate()
 
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
@@ -77,6 +83,9 @@ def test_user_start_instance_and_process_two_batches_of_jobs_with_only_one_being
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
+
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -95,7 +104,7 @@ def test_user_start_instance_and_process_two_batches_of_jobs_with_only_one_being
 
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
-    time.sleep(5)
+    time.sleep(30)
 
     TestWrapper.check_list_instances_output(
         expected_uuid=[instance_uuid],
@@ -115,6 +124,8 @@ def test_user_start_instance_and_process_two_batches_of_jobs_with_only_one_being
     p.terminate()
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 

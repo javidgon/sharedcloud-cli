@@ -1,10 +1,13 @@
 import random
 import re
-
 import uuid
+
 from click.testing import CliRunner
 
-from sharedcloud_cli.main import cli, _read_user_token, function, run, instance, job, account, image, gpu, offer
+from sharedcloud_cli.main import (
+    cli, _read_user_token, function, run, instance, job, account, image, gpu, offer, notebook, session
+)
+from sharedcloud_cli.utils import _perform_instance_action
 from tests.constants import Message
 
 
@@ -103,6 +106,104 @@ class TestUtils:
     def list_functions(cls):
         config = Config(token=_read_user_token())
         return cls.runner.invoke(function, [
+            'list',
+        ], obj=config)
+
+    # Session
+    @classmethod
+    def start_session(
+            cls,
+            notebook_uuid=None,
+            bid_price=None,
+            password=None,
+            base_gpu_uuid=None):
+        config = Config(token=_read_user_token())
+        args = ['start']
+
+        if notebook_uuid:
+            args.append('--notebook-uuid')
+            args.append(notebook_uuid)
+        if bid_price:
+            args.append('--bid-price')
+            args.append(bid_price)
+        if password:
+            args.append('--password')
+            args.append(password)
+        if base_gpu_uuid:
+            args.append('--base-gpu-uuid')
+            args.append(base_gpu_uuid)
+        return cls.runner.invoke(session, args, obj=config)
+
+    @classmethod
+    def stop_session(
+            cls,
+            uuid=None):
+        config = Config(token=_read_user_token())
+        args = ['stop']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+
+        return cls.runner.invoke(session, args, obj=config)
+
+    @classmethod
+    def list_sessions(cls):
+        config = Config(token=_read_user_token())
+        return cls.runner.invoke(session, [
+            'list',
+        ], obj=config)
+
+    # Notebooks
+    @classmethod
+    def create_notebook(
+            cls,
+            name=None,
+            image_uuid=None):
+        config = Config(token=_read_user_token())
+        args = ['create']
+
+        if name:
+            args.append('--name')
+            args.append(name)
+        if image_uuid:
+            args.append('--image-uuid')
+            args.append(image_uuid)
+        return cls.runner.invoke(notebook, args, obj=config)
+
+    @classmethod
+    def update_notebook(cls,
+                        uuid=None,
+                        name=None,
+                        image_uuid=None):
+        config = Config(token=_read_user_token())
+        args = ['update']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        if name:
+            args.append('--name')
+            args.append(name)
+        if image_uuid:
+            args.append('--image-uuid')
+            args.append(image_uuid)
+        return cls.runner.invoke(notebook, args, obj=config)
+
+    @classmethod
+    def delete_notebook(cls, uuid=None):
+        config = Config(token=_read_user_token())
+        args = ['delete']
+
+        if uuid:
+            args.append('--uuid')
+            args.append(uuid)
+        return cls.runner.invoke(notebook, args, obj=config)
+
+    @classmethod
+    def list_notebooks(cls):
+        config = Config(token=_read_user_token())
+        return cls.runner.invoke(notebook, [
             'list',
         ], obj=config)
 
@@ -419,6 +520,17 @@ class TestUtils:
         return cls.runner.invoke(instance, args, obj=config)
 
     @classmethod
+    def stop_instance(cls, uuid=None):
+        return _perform_instance_action('stop', uuid, _read_user_token())
+
+    @classmethod
+    def download_dependencies(cls):
+        config = Config(token=_read_user_token())
+        args = ['download_dependencies']
+
+        return cls.runner.invoke(instance, args, obj=config)
+
+    @classmethod
     def read_file(cls, filepath):
         output = None
         with open(filepath, 'r') as f:
@@ -573,6 +685,151 @@ class TestWrapper:
         r = TestUtils.login(username=username, password=password)
         assert r.exit_code == error_code
         assert msg in r.output
+
+    # Session
+    @classmethod
+    def start_session_successfully(cls, notebook_uuid=None, bid_price=None, password=None, base_gpu_uuid=None):
+        r = TestUtils.start_session(
+            notebook_uuid=notebook_uuid, bid_price=bid_price, password=password, base_gpu_uuid=base_gpu_uuid
+        )
+        assert r.exit_code == 0
+        return TestUtils.extract_uuid(r.output)
+
+    @classmethod
+    def start_session_unsuccessfully(cls, notebook_uuid=None, bid_price=None, password=None, base_gpu_uuid=None,
+                                     error_code=None, msg=None):
+        r = TestUtils.start_session(
+            notebook_uuid=notebook_uuid, bid_price=bid_price, password=password, base_gpu_uuid=base_gpu_uuid
+        )
+        assert r.exit_code == error_code
+        assert msg in r.output
+
+    @classmethod
+    def stop_session_successfully(cls, uuid=None):
+        r = TestUtils.stop_session(uuid=uuid)
+        assert r.exit_code == 0
+
+    @classmethod
+    def stop_session_unsuccessfully(cls, uuid=None, error_code=None, msg=None):
+        r = TestUtils.stop_session(uuid=uuid)
+        assert r.exit_code == error_code
+        assert msg in r.out
+
+    @classmethod
+    def check_list_sessions_output(
+            cls,
+            expected_uuid=None,
+            expected_notebook_name=None,
+            expected_status=None,
+            expected_logout_warning=False
+    ):
+        columns = ['UUID', 'NOTEBOOK', 'STATUS', 'COST', 'URL', 'DURATION', 'BASE_GPU', 'WHEN']
+        r = TestUtils.list_sessions()
+        if expected_logout_warning:
+            assert r.exit_code == 1
+            assert Message.YOU_ARE_LOGOUT_WARNING in r.output
+            return
+        else:
+            assert r.exit_code == 0
+
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+
+        num_rows = len(rows)
+
+        # Due to the inverse order (last resources are displayed in the first positions of the list),
+        # we check the expectations in the opposite order
+        for idx, row in enumerate(rows):
+            inverse_idx = num_rows - (idx + 1)
+            fields = [field for field in row.split('  ') if field]
+
+            if expected_uuid:
+                assert expected_uuid[inverse_idx] in fields[columns.index('UUID')]
+
+            if expected_notebook_name:
+                assert expected_notebook_name[inverse_idx] in fields[columns.index('NOTEBOOK')]
+
+            if expected_status:
+                assert expected_status[inverse_idx] in fields[columns.index('STATUS')]
+
+    # Notebook
+    @classmethod
+    def create_notebook_successfully(cls, image_uuid=None):
+        name = TestUtils.generate_random_seed()
+        r = TestUtils.create_notebook(name=name, image_uuid=image_uuid)
+        assert r.exit_code == 0
+        return TestUtils.extract_uuid(r.output), name
+
+    @classmethod
+    def create_notebook_unsuccessfully(cls, name=None, image_uuid=None, error_code=None,
+                                       msg=None):
+        r = TestUtils.create_notebook(name=name, image_uuid=image_uuid)
+        assert r.exit_code == error_code
+        assert msg in r.output
+
+    @classmethod
+    def update_notebook_successfully(cls, uuid=None, name=None, image_uuid=None):
+        r = TestUtils.update_notebook(uuid=uuid, name=name, image_uuid=image_uuid)
+        assert r.exit_code == 0
+
+    @classmethod
+    def update_notebook_unsuccessfully(cls, uuid=None, name=None, image_uuid=None,
+                                       error_code=None, msg=None):
+        r = TestUtils.update_notebook(uuid=uuid, name=name, image_uuid=image_uuid)
+        assert r.exit_code == error_code
+        assert msg in r.output
+
+    @classmethod
+    def delete_notebook_successfully(cls, uuid=None):
+        r = TestUtils.delete_notebook(uuid=uuid)
+        assert r.exit_code == 0
+
+    @classmethod
+    def delete_notebook_unsuccessfully(cls, uuid=None, error_code=None, msg=None):
+        r = TestUtils.delete_notebook(uuid=uuid)
+        assert r.exit_code == error_code
+        assert msg in r.output
+
+    @classmethod
+    def check_list_notebooks_output(
+            cls,
+            expected_uuid=None,
+            expected_name=None,
+            expected_image=None,
+            expected_logout_warning=False
+    ):
+        columns = ['UUID', 'NAME', 'IMAGE', 'WHEN']
+        r = TestUtils.list_notebooks()
+        if expected_logout_warning:
+            assert r.exit_code == 1
+            assert Message.YOU_ARE_LOGOUT_WARNING in r.output
+            return
+        else:
+            assert r.exit_code == 0
+
+        for column in columns:
+            assert column in r.output
+
+        rows = r.output.split('\n')[2:-1]  # The first two rows are the title so we really don't care about them
+
+        num_rows = len(rows)
+
+        # Due to the inverse order (last resources are displayed in the first positions of the list),
+        # we check the expectations in the opposite order
+        for idx, row in enumerate(rows):
+            inverse_idx = num_rows - (idx + 1)
+            fields = [field for field in row.split('  ') if field]
+
+            if expected_uuid:
+                assert expected_uuid[inverse_idx] in fields[columns.index('UUID')]
+
+            if expected_name:
+                assert expected_name[inverse_idx] in fields[columns.index('NAME')]
+
+            if expected_image:
+                assert expected_image[inverse_idx] in fields[columns.index('IMAGE')]
 
     # Function
     @classmethod
@@ -828,7 +1085,6 @@ class TestWrapper:
         return r
 
     # Instance
-
     @classmethod
     def start_instance_unsuccessfully(cls, job_timeout=None, error_code=None, msg=None):
         r = TestUtils.start_instance(job_timeout=job_timeout)
@@ -842,6 +1098,13 @@ class TestWrapper:
                                       max_num_parallel_jobs=max_num_parallel_jobs, gpu_uuid=gpu_uuid)
         assert r.exit_code == 0
         return TestUtils.extract_uuid(r.output), name
+
+    @classmethod
+    def stop_instance_successfully(cls, uuid=None):
+        r = TestUtils.stop_instance(uuid=uuid)
+
+        assert r.status_code == 200
+        return uuid
 
     @classmethod
     def create_instance_unsuccessfully(
@@ -879,6 +1142,11 @@ class TestWrapper:
         r = TestUtils.delete_instance(uuid=uuid)
         assert r.exit_code == error_code
         assert msg in r.output
+
+    @classmethod
+    def download_dependencies_successfully(cls):
+        r = TestUtils.download_dependencies()
+        assert r.exit_code == 0
 
     @classmethod
     def check_list_instances_output(cls,

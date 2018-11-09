@@ -45,13 +45,13 @@ def test_start_instance_can_fetch_a_job_from_another_user():
         max_num_parallel_jobs=3
     )
 
-    TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+    TestWrapper.download_dependencies_successfully()
 
+    TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
     p = multiprocessing.Process(target=TestUtils.start_instance, name="start_instance", kwargs={})
     p.start()
     p.join(60.0)  # 60 seconds of timeout
     p.terminate()
-
     TestWrapper.check_account_output(
         expected_email=[instance_owner_email],
         expected_username=[instance_owner_username],
@@ -59,6 +59,8 @@ def test_start_instance_can_fetch_a_job_from_another_user():
     )
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
@@ -89,6 +91,9 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
         ask_price=1.5,
         max_num_parallel_jobs=3
     )
+
+    TestWrapper.download_dependencies_successfully()
+
     TestWrapper.download_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
 
     function_uuid, function_name = TestWrapper.create_function_successfully(
@@ -125,6 +130,8 @@ def test_start_instance_doesnt_pick_up_jobs_if_it_doesnt_have_the_right_image():
     p.terminate()
 
     TestWrapper.clean_image_successfully(registry_path=Image.WEB_CRAWLING_PYTHON36['path'])
+
+    TestWrapper.stop_instance_successfully(uuid=instance_uuid)
 
     TestWrapper.delete_instance_successfully(uuid=instance_uuid)
 
