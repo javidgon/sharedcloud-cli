@@ -46,7 +46,7 @@ setup(name='sharedcloud-cli',
       packages=find_packages(),
       install_requires=[
           'click==6.7',
-          'requests==2.19.1',
+          'requests==2.20.0',
           'tabulate==0.8.2',
           'timeago==1.0.8',
       ],
